@@ -1,23 +1,40 @@
 // XXX
-// - stop using long doulbe
+
+// - make an equation for the total pe of a colum from ctr of earth
+//   - verify this equation is correct
+
+// - doubles
+//   - cast floating point constants to long double
+//   - use define for long double
+
+// - performance
+//   - how long to converge if random i,j used instead of full loops
+
+// - spherical earth
+//   - does this change the result
+
+// - graphics
+//   - motion on/off
+//   - switch to remove the centriigul, or change its value
+//   - show the vectors at the 4 locations
+// - function for the pe
+
+// - write this up in README.md
+//   - include assumptions
+//   - what were my miconceptions
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <math.h>
 
 // Purpose: To calculate the location and height of the Earth's tidal bulges,
 //          caused by the Moon.
 
-// Assumptions:  XXX review
-// - the Earth to Moon distance is constant, the orbits are circular
-// - calculations are done using 2 dimensions.
-// - earth is circular.
-// - 24 hour rotation of the Earth is not considered.
-// - contributuion to the tidal bulges by the Sun is ignored.
-
-// Diagram
-// - the X,Y origin is at the center of mass, 
-//   both the Earth and the Moon have circular orbits about this point
+// Coordinates Diagram
+// - The X,Y origin is at the center of mass. 
+//   Both the Earth and the Moon have circular orbits about this point
+//
 //                           Y             
 //                           |
 //                  xxxxxxxxx|x
@@ -31,7 +48,7 @@
 //                  xxxxxxxxx|x
 //                           | 
 //                       ^                                                      ^
-//                    x.earth                                                 moon.x
+//                    earth.x                                                 moon.x
 
 //
 // defines
@@ -42,16 +59,15 @@
 #define MOON_MASS          7.34767309e22    // mass of moon, kg
 #define DIST_EARTH_MOON    3.84400e8        // distance between earth and moon, meters
 #define G                  6.67408e-11      // gravitational constant
-#define EARTH_GRAVITY      9.81             // gravity of earth, m/s/s
-#define OCEAN_DEPTH        3682.            // average depth of oceans, meters
+//#define EARTH_GRAVITY      9.81             // gravity of earth, m/s/s
+#define EARTH_GRAVITY      10.0             // gravity of earth, m/s/s  xxx
 
 #define METERS_TO_MILES(m) ((m) * 0.000621371)
 #define TWO_PI             (2 * M_PI)
 #define DEG_TO_RAD(d)      ((d) * (M_PI/180))
 #define RAD_TO_DEG(r)      ((r) * (180/M_PI))
 
-#define DELTA_H            1e-5
-#define DELTA_M            1.0
+#define DELTA_H            1e-3
 
 //
 // typedefs
@@ -73,6 +89,7 @@ struct {
     long double g[360];
     long double h[360];
     long double tpe;
+    long double tpe_start;
 } earth;
 
 typedef struct {
@@ -96,9 +113,6 @@ int main(int argc, char **argv)
     earth.mass   = EARTH_MASS;
     moon.mass    = MOON_MASS;
     earth.radius = EARTH_RADIUS;
-    for (int i = 0; i < 360; i++) {
-        earth.h[i] = OCEAN_DEPTH;;
-    }
 
     // Determine the position of the earth and moon relative to the center of mass.
     // Refer to the diagram above, the Earth and Moon have no velocity in the X direction, 
@@ -141,23 +155,41 @@ int main(int argc, char **argv)
         d = magnitude(&m);
         set_vector_magnitude(&m, G * moon.mass / square(d));
 
+#if 1
         c.a = -1;
         c.b = 0;
         set_vector_magnitude(&c,  square(earth.w) * -earth.x);
+#endif
+#if 0
+        c.a = x;
+        c.b = y;
+        d = magnitude(&c);
+        set_vector_magnitude(&c, square(earth.w) * d);
+#endif
+#if 0
+        memset(&c,0,sizeof(c));
+#endif
 
         t.a = g.a + m.a + c.a;
         t.b = g.b + m.b + c.b;
         earth.g[deg] = magnitude(&t);
 
         if (deg == 0 || deg == 90 || deg == 180 || deg == 270) {
-            printf("%3d: earth gravity    = %0.9Lf %0.9Lf\n", deg, g.a, g.b);
-            printf("     moon gravity     = %0.9Lf %0.9Lf\n", m.a, m.b);
-            printf("     centrigual accel = %0.9Lf %0.9Lf\n", c.a, c.b);
-            printf("     total            = %0.9Lf %0.9Lf\n", t.a, t.b);
-            printf("     MAGNITUDE        = %0.9Lf\n", earth.g[deg]);
+            printf("%3d: earth gravity     = %0.9Lf %0.9Lf\n", deg, g.a, g.b);
+            printf("     moon gravity      = %0.9Lf %0.9Lf\n", m.a, m.b);
+            printf("     centrifugal accel = %0.9Lf %0.9Lf\n", c.a, c.b);
+            printf("     total             = %0.9Lf %0.9Lf\n", t.a, t.b);
+            printf("     MAGNITUDE         = %0.9Lf\n", earth.g[deg]);
             printf("\n");
         }
     }
+
+    // xxx comment
+    for (int i = 0; i < 360; i++) {
+        earth.h[i] = earth.radius;
+        earth.tpe += (earth.g[i] * pow(earth.h[i], 5));   // xxx function
+    }
+    earth.tpe_start = earth.tpe;
 
     // xxx
     printf("Running ...\n");
@@ -169,8 +201,9 @@ int main(int argc, char **argv)
             long double min_dpe=1e99, best_dpe=0;
             for (int j = 0; j < 360; j++) {
                 long double dpe;
-                dpe = (DELTA_M * earth.g[i] * (earth.h[i] + DELTA_H/2)) -
-                      (DELTA_M * earth.g[j] * (earth.h[j] - DELTA_H/2));
+                dpe = (earth.g[i] * pow(earth.h[i]+DELTA_H/2, 5)) -
+                      (earth.g[j] * pow(earth.h[j]-DELTA_H/2, 5));
+                //printf("i,j  %d %d   dpe = %0.20Lf\n", i, j, dpe);  //xxx
                 if (dpe < 0 && dpe < min_dpe) {
                     best_add_idx = i;
                     best_sub_idx = j;
@@ -181,12 +214,14 @@ int main(int argc, char **argv)
             if (best_add_idx != -1) {
                 earth.h[best_add_idx] += DELTA_H;
                 earth.h[best_sub_idx] -= DELTA_H;
-                earth.tpe += best_dpe;  // xxx  not used ?
+                earth.tpe += best_dpe;
                 num_exchanges++;
             }
         }
-        if ((++loops % 100) == 0) {
-            printf("   loops=%d  numex=%d\n", loops, num_exchanges);
+        if ((++loops % 10) == 0) {
+            printf("   loops = %3d  numex = %3d  tpe = %0.10Le  tpe-tpe_start = %0.10Le\n", 
+               loops, num_exchanges, earth.tpe,
+               earth.tpe - earth.tpe_start);
         }
         if (num_exchanges <= 2) {
             break;
@@ -196,17 +231,19 @@ int main(int argc, char **argv)
     printf("\n");
   
     // print results
+    printf("Results ...\n");
     long double minh=1e99, maxh=-1e99;
     for (int i = 0; i < 360; i++) {
         long double h = earth.h[i];
         if (i == 0 || i == 90 || i == 180 || i == 270) {
-            printf("deg = %3d   height= %0.10Lf\n", i, h);
+            printf("   deg = %3d   height = %0.10Lf  height-earth_radius = %+0.6Lf\n", 
+                   i, h, h-earth.radius);
         }
         if (h < minh) minh = h;
         if (h > maxh) maxh = h;
     }
     printf("\n");
-    printf("min = %LF max = %LF  Range = %LF\n", minh, maxh, maxh-minh);
+    printf("   min = %LF max = %LF  Range = %LF\n", minh, maxh, maxh-minh);
 
     // done
     return 0;
