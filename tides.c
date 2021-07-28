@@ -101,6 +101,7 @@ typedef struct {
 // prototypes
 //
 
+static long double potential_energy(long double g_surface, long double R);
 static long double square(long double x);
 static long double magnitude(vector_t *v);
 static int set_vector_magnitude(vector_t *v, long double new_magnitude);
@@ -187,7 +188,8 @@ int main(int argc, char **argv)
     // xxx comment
     for (int i = 0; i < 360; i++) {
         earth.h[i] = earth.radius;
-        earth.tpe += (earth.g[i] * pow(earth.h[i], 5));   // xxx function
+        //earth.tpe += (earth.g[i] * pow(earth.h[i], 5));   // xxx function
+        earth.tpe += potential_energy(earth.g[i], earth.h[i]);
     }
     earth.tpe_start = earth.tpe;
 
@@ -201,8 +203,10 @@ int main(int argc, char **argv)
             long double min_dpe=1e99, best_dpe=0;
             for (int j = 0; j < 360; j++) {
                 long double dpe;
-                dpe = (earth.g[i] * pow(earth.h[i]+DELTA_H/2, 5)) -
-                      (earth.g[j] * pow(earth.h[j]-DELTA_H/2, 5));
+                //dpe = (earth.g[i] * pow(earth.h[i]+DELTA_H/2, 5)) -
+                //      (earth.g[j] * pow(earth.h[j]-DELTA_H/2, 5));
+                dpe = potential_energy(earth.g[i], earth.h[i] + DELTA_H/2) -
+                      potential_energy(earth.g[j], earth.h[j] - DELTA_H/2);
                 //printf("i,j  %d %d   dpe = %0.20Lf\n", i, j, dpe);  //xxx
                 if (dpe < 0 && dpe < min_dpe) {
                     best_add_idx = i;
@@ -247,6 +251,107 @@ int main(int argc, char **argv)
 
     // done
     return 0;
+}
+
+// -----------------  POTENTIAL ENERGY  -----------------------------
+
+static long double potential_energy(long double g_surface, long double R)
+{
+#if 0
+XXX recheck this
+
+Define ... XXX
+  G
+  Me
+  Re
+  g
+  etc
+
+The acceleration at the earth surface (due to earth gravity) is
+               G * Me
+   g_surface = ------
+                Re^2
+
+Imagine a tunnel through the center of the earth, the accel of gravity
+at distance R from earth center is
+       G * (Me * R^3 / Re^3)
+   g = --------------------- = (G * Me / Re^3) * R
+             R^2
+
+   K = (G * Me / Re^3)
+
+   g = K * R
+
+The amount of Energy to lift an object of mass m from the earth center to R is:
+        R
+   E = Integral  F * dR
+        0
+
+        R
+   E = Integral  (m * g) * dR
+        0
+
+        R
+   E = Integral  (m * K * R) * dR
+        0
+
+   E = 1/2 * K * m * R^2
+
+The total potentail energy of a cone of water where the area of the cone at
+the earth surface is A, and the density of water is p, and the height of the
+cone is R:
+
+             R^2
+   m = (A * ----- * dR) * p
+            Re^2
+
+        Re
+   E = Integral  1/2 * K * m * R^2
+        0
+
+        Re                       R^2
+   E = Integral  1/2 * K * (A * ----- * dR * p) * R^2
+        0                       Re^2
+
+   K1 = 1/2 * K * A / Re^2 * p
+
+        Re
+   E = Integral  K1 * R^4 * dR
+        0 
+
+   E = 1/5 * K1 * R^5
+
+
+   K1 = 1/2 * (G * Me / Re^3) * A / Re^2 * p
+
+              G * Me
+   K1 = 1/2 * ------ * A * p
+               Re^5
+
+                G * Me          
+   E = ( 1/10 * ------ * A * p ) * R^5
+                 Re^5           
+
+  The units of the above equation for E are kg * m^2 / s^2.
+  This is the correct unit for Energy.
+
+Next, work g_surface into the above equation for total potential energy.
+        g_surface * Re^2
+   Me = ----------------
+             G
+
+                g_surface       
+   E = ( 1/10 * --------- * A * p ) * R^5
+                 Re^3           
+
+         A * p
+   E = --------- * g_surface * R^5
+       10 * Re^3
+
+#endif
+    //XXX include the constant in the result too?
+    //return g_surface * powl(R, 5);
+    return g_surface * pow(R, 5);  // xxx this is much faster and with the same result
 }
 
 // -----------------  UTILS  ----------------------------------------
