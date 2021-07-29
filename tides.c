@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
@@ -102,6 +103,8 @@ typedef struct {
 //
 
 static long double potential_energy(long double g_surface, long double R);
+static long double delta_potential_energy(long double g_surface, long double height, long double delta_h);
+static long double total_potential_energy(void);
 static long double square(long double x);
 static long double magnitude(vector_t *v);
 static int set_vector_magnitude(vector_t *v, long double new_magnitude);
@@ -114,6 +117,9 @@ int main(int argc, char **argv)
     earth.mass   = EARTH_MASS;
     moon.mass    = MOON_MASS;
     earth.radius = EARTH_RADIUS;
+    for (int i = 0; i < 360; i++) {
+        earth.h[i] = EARTH_RADIUS;
+    }
 
     // Determine the position of the earth and moon relative to the center of mass.
     // Refer to the diagram above, the Earth and Moon have no velocity in the X direction, 
@@ -185,14 +191,12 @@ int main(int argc, char **argv)
         }
     }
 
-    // xxx comment
-    for (int i = 0; i < 360; i++) {
-        earth.h[i] = earth.radius;
-        //earth.tpe += (earth.g[i] * pow(earth.h[i], 5));   // xxx function
-        earth.tpe += potential_energy(earth.g[i], earth.h[i]);
-    }
-    earth.tpe_start = earth.tpe;
+    // xxx
+    earth.tpe = total_potential_energy();
+    earth.tpe_start = total_potential_energy();
+    printf("TPE START = %0.10Le\n", earth.tpe_start);
 
+#if 0
     // xxx
     printf("Running ...\n");
     int loops = 0;
@@ -203,11 +207,19 @@ int main(int argc, char **argv)
             long double min_dpe=1e99, best_dpe=0;
             for (int j = 0; j < 360; j++) {
                 long double dpe;
-                //dpe = (earth.g[i] * pow(earth.h[i]+DELTA_H/2, 5)) -
-                //      (earth.g[j] * pow(earth.h[j]-DELTA_H/2, 5));
-                dpe = potential_energy(earth.g[i], earth.h[i] + DELTA_H/2) -
-                      potential_energy(earth.g[j], earth.h[j] - DELTA_H/2);
+                //dpe = (earth.g[i] * powl(earth.h[i]+DELTA_H/2, 5)) -
+                //      (earth.g[j] * powl(earth.h[j]-DELTA_H/2, 5));
+                //dpe = potential_energy(earth.g[i], earth.h[i] + DELTA_H) -
+                //      potential_energy(earth.g[j], earth.h[j] - DELTA_H);
+                //dpe = potential_energy(earth.g[i], earth.h[i]) -
+                //      potential_energy(earth.g[j], earth.h[j]);
+
+                dpe = delta_potential_energy(earth.g[i], earth.h[i], DELTA_H) +
+                      delta_potential_energy(earth.g[j], earth.h[j], -DELTA_H);
+                //dpe = -dpe;
+
                 //printf("i,j  %d %d   dpe = %0.20Lf\n", i, j, dpe);  //xxx
+
                 if (dpe < 0 && dpe < min_dpe) {
                     best_add_idx = i;
                     best_sub_idx = j;
@@ -216,23 +228,83 @@ int main(int argc, char **argv)
                 }
             }
             if (best_add_idx != -1) {
+                //printf("XXX best_add_idx = %d  best_sub_idx = %d\n", best_add_idx, best_sub_idx);
                 earth.h[best_add_idx] += DELTA_H;
                 earth.h[best_sub_idx] -= DELTA_H;
                 earth.tpe += best_dpe;
                 num_exchanges++;
             }
         }
-        if ((++loops % 10) == 0) {
-            printf("   loops = %3d  numex = %3d  tpe = %0.10Le  tpe-tpe_start = %0.10Le\n", 
-               loops, num_exchanges, earth.tpe,
-               earth.tpe - earth.tpe_start);
+        loops++;
+        if (1 || (loops % 10) == 0) {
+            printf("   loops = %3d  numex = %3d  tpe = %0.10Le  %0.10Le  tpe-tpe_start = %0.10Le   %0.10Le\n", 
+               loops, num_exchanges, 
+               earth.tpe,
+               total_potential_energy(),
+               earth.tpe - earth.tpe_start,
+               total_potential_energy() - earth.tpe_start);
         }
         if (num_exchanges <= 2) {
             break;
         }
+        if (loops == 120) break;
     }
     printf("   final loops = %d\n", loops);
     printf("\n");
+#else
+    printf("Running ...\n");
+    int loops = 0;
+    int num_exchanges = 0;
+    int num_exchanges_last = 0;
+    long double earth_tpe_last = 0;
+    int tpe_unchanged_count = 0;
+    while (true) {
+        int i = random() % 360;
+        int j = random() % 360;
+        long double dpe;
+        if (i == j) continue;
+        dpe = delta_potential_energy(earth.g[i], earth.h[i], DELTA_H) +
+              delta_potential_energy(earth.g[j], earth.h[j], -DELTA_H);
+        if (dpe < 0) {
+            earth.h[i] += DELTA_H;
+            earth.h[j] -= DELTA_H;
+            earth.tpe += dpe;
+            num_exchanges++;
+        }
+
+        loops++;
+        if ((loops % 10000) == 0) {
+            printf("   loops = %9d  %9d %9d  tpe = %0.10Le  %0.10Le  tpe-tpe_start = %0.10Le   %0.10Le\n", 
+               loops, num_exchanges,  num_exchanges_last,
+               earth.tpe,
+               total_potential_energy(),
+               earth.tpe - earth.tpe_start,
+               total_potential_energy() - earth.tpe_start);
+
+            if (earth.tpe == earth_tpe_last) {
+                printf("** tpe unchanged **\n");
+                tpe_unchanged_count++;
+                if (tpe_unchanged_count == 10) break;
+            }
+            earth_tpe_last = earth.tpe;
+#if 0
+            long double ratio = earth.tpe / earth_tpe_last;
+            earth_tpe_last = earth.tpe;
+            printf(" -- ratio %0.30Lf\n", ratio);
+            if (ratio == 1) {
+                ratio_equal_one_count++;
+                if (ratio_equal_one_count == 10) break;
+            }
+            //if (num_exchanges == num_exchanges_last) {
+                //break;
+            //}
+            num_exchanges_last = num_exchanges;
+#endif
+        }
+        if (loops == 10000000) break;
+    }
+
+#endif
   
     // print results
     printf("Results ...\n");
@@ -351,7 +423,23 @@ Next, work g_surface into the above equation for total potential energy.
 #endif
     //XXX include the constant in the result too?
     //return g_surface * powl(R, 5);
-    return g_surface * pow(R, 5);  // xxx this is much faster and with the same result
+    return g_surface * powl(R, 5);  // xxx this is much faster and with the same result
+}
+
+static long double delta_potential_energy(long double g_surface, long double height, long double delta_h)
+{
+    // XXX powl vs pow,  vs multiplying
+    return 5 * g_surface * powl(height,4) * delta_h;
+}
+
+static long double total_potential_energy(void)
+{
+    long double tpe = 0;
+
+    for (int i = 0; i < 360; i++) {
+        tpe += potential_energy(earth.g[i], earth.h[i]);
+    }
+    return tpe;
 }
 
 // -----------------  UTILS  ----------------------------------------
