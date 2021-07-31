@@ -1,14 +1,8 @@
 // XXX
 
-// - make an equation for the total pe of a colum from ctr of earth
-//   - verify this equation is correct
-
 // - doubles
 //   - cast floating point constants to long double
 //   - use define for long double
-
-// - performance
-//   - how long to converge if random i,j used instead of full loops
 
 // - spherical earth
 //   - does this change the result
@@ -60,8 +54,7 @@
 #define MOON_MASS          7.34767309e22    // mass of moon, kg
 #define DIST_EARTH_MOON    3.84400e8        // distance between earth and moon, meters
 #define G                  6.67408e-11      // gravitational constant
-//#define EARTH_GRAVITY      9.81             // gravity of earth, m/s/s
-#define EARTH_GRAVITY      10.0             // gravity of earth, m/s/s  xxx
+#define EARTH_GRAVITY      9.81             // gravity of earth, m/s/s
 
 #define METERS_TO_MILES(m) ((m) * 0.000621371)
 #define TWO_PI             (2 * M_PI)
@@ -87,10 +80,9 @@ struct {
     long double mass;
     long double radius;
     long double w;
-    long double g[360];
-    long double h[360];
+    long double g[360];  // xxx rename g_surface
+    long double h[360];  // xxx rename r
     long double tpe;
-    long double tpe_start;
 } earth;
 
 typedef struct {
@@ -102,9 +94,7 @@ typedef struct {
 // prototypes
 //
 
-static long double potential_energy(long double g_surface, long double R);
-static long double delta_potential_energy(long double g_surface, long double height, long double delta_h);
-static long double total_potential_energy(void);
+static long double potential_energy(long double m, long double g_surface, long double r);
 static long double square(long double x);
 static long double magnitude(vector_t *v);
 static int set_vector_magnitude(vector_t *v, long double new_magnitude);
@@ -191,120 +181,57 @@ int main(int argc, char **argv)
         }
     }
 
-    // xxx
-    earth.tpe = total_potential_energy();
-    earth.tpe_start = total_potential_energy();
-    printf("TPE START = %0.10Le\n", earth.tpe_start);
-
-#if 0
-    // xxx
     printf("Running ...\n");
     int loops = 0;
-    while (true) {
-        int num_exchanges = 0;
-        for (int i = 0; i < 360; i++) {
-            int best_add_idx=-1, best_sub_idx=-1;
-            long double min_dpe=1e99, best_dpe=0;
-            for (int j = 0; j < 360; j++) {
-                long double dpe;
-                //dpe = (earth.g[i] * powl(earth.h[i]+DELTA_H/2, 5)) -
-                //      (earth.g[j] * powl(earth.h[j]-DELTA_H/2, 5));
-                //dpe = potential_energy(earth.g[i], earth.h[i] + DELTA_H) -
-                //      potential_energy(earth.g[j], earth.h[j] - DELTA_H);
-                //dpe = potential_energy(earth.g[i], earth.h[i]) -
-                //      potential_energy(earth.g[j], earth.h[j]);
-
-                dpe = delta_potential_energy(earth.g[i], earth.h[i], DELTA_H) +
-                      delta_potential_energy(earth.g[j], earth.h[j], -DELTA_H);
-                //dpe = -dpe;
-
-                //printf("i,j  %d %d   dpe = %0.20Lf\n", i, j, dpe);  //xxx
-
-                if (dpe < 0 && dpe < min_dpe) {
-                    best_add_idx = i;
-                    best_sub_idx = j;
-                    best_dpe = dpe;
-                    min_dpe = dpe;
-                }
-            }
-            if (best_add_idx != -1) {
-                //printf("XXX best_add_idx = %d  best_sub_idx = %d\n", best_add_idx, best_sub_idx);
-                earth.h[best_add_idx] += DELTA_H;
-                earth.h[best_sub_idx] -= DELTA_H;
-                earth.tpe += best_dpe;
-                num_exchanges++;
-            }
-        }
-        loops++;
-        if (1 || (loops % 10) == 0) {
-            printf("   loops = %3d  numex = %3d  tpe = %0.10Le  %0.10Le  tpe-tpe_start = %0.10Le   %0.10Le\n", 
-               loops, num_exchanges, 
-               earth.tpe,
-               total_potential_energy(),
-               earth.tpe - earth.tpe_start,
-               total_potential_energy() - earth.tpe_start);
-        }
-        if (num_exchanges <= 2) {
-            break;
-        }
-        if (loops == 120) break;
-    }
-    printf("   final loops = %d\n", loops);
-    printf("\n");
-#else
-    printf("Running ...\n");
-    int loops = 0;
-    int num_exchanges = 0;
-    int num_exchanges_last = 0;
     long double earth_tpe_last = 0;
+    long double m;
     int tpe_unchanged_count = 0;
     while (true) {
         int i = random() % 360;
         int j = random() % 360;
-        long double dpe;
+        long double delta_pe;
         if (i == j) continue;
-        dpe = delta_potential_energy(earth.g[i], earth.h[i], DELTA_H) +
-              delta_potential_energy(earth.g[j], earth.h[j], -DELTA_H);
-        if (dpe < 0) {
+
+#if 1
+        // xxx use this one and clean up the mass calc
+        delta_pe = 0;
+        m = square((earth.h[i]+(DELTA_H/2)) / earth.radius) * DELTA_H,
+        delta_pe += potential_energy(m,
+                                     earth.g[i], 
+                                     earth.h[i]+(DELTA_H/2));
+        m = square((earth.h[j]-(DELTA_H/2)) / earth.radius) * DELTA_H,
+        delta_pe -= potential_energy(m,
+                                     earth.g[j], 
+                                     earth.h[j]-(DELTA_H/2));
+#else
+        delta_pe = 0;
+        delta_pe += potential_energy(square(earth.h[i]+(DELTA_H/2)),
+                                     earth.g[i], 
+                                     earth.h[i]+(DELTA_H/2));
+        delta_pe -= potential_energy(square(earth.h[j]-(DELTA_H/2)),
+                                     earth.g[j], 
+                                     earth.h[j]-(DELTA_H/2));
+#endif
+
+        if (delta_pe < 0) {
             earth.h[i] += DELTA_H;
             earth.h[j] -= DELTA_H;
-            earth.tpe += dpe;
-            num_exchanges++;
+            earth.tpe += delta_pe;
         }
 
         loops++;
         if ((loops % 10000) == 0) {
-            printf("   loops = %9d  %9d %9d  tpe = %0.10Le  %0.10Le  tpe-tpe_start = %0.10Le   %0.10Le\n", 
-               loops, num_exchanges,  num_exchanges_last,
-               earth.tpe,
-               total_potential_energy(),
-               earth.tpe - earth.tpe_start,
-               total_potential_energy() - earth.tpe_start);
-
+            printf("   loops = %9d   tpe = %0.10Le   tpe_unchanged_count = %d\n", loops, earth.tpe, tpe_unchanged_count);
             if (earth.tpe == earth_tpe_last) {
-                printf("** tpe unchanged **\n");
                 tpe_unchanged_count++;
                 if (tpe_unchanged_count == 10) break;
+            } else {
+                tpe_unchanged_count = 0;
             }
             earth_tpe_last = earth.tpe;
-#if 0
-            long double ratio = earth.tpe / earth_tpe_last;
-            earth_tpe_last = earth.tpe;
-            printf(" -- ratio %0.30Lf\n", ratio);
-            if (ratio == 1) {
-                ratio_equal_one_count++;
-                if (ratio_equal_one_count == 10) break;
-            }
-            //if (num_exchanges == num_exchanges_last) {
-                //break;
-            //}
-            num_exchanges_last = num_exchanges;
-#endif
         }
         if (loops == 10000000) break;
     }
-
-#endif
   
     // print results
     printf("Results ...\n");
@@ -327,18 +254,8 @@ int main(int argc, char **argv)
 
 // -----------------  POTENTIAL ENERGY  -----------------------------
 
-static long double potential_energy(long double g_surface, long double R)
-{
+// xxx cleanup and save old comments
 #if 0
-XXX recheck this
-
-Define ... XXX
-  G
-  Me
-  Re
-  g
-  etc
-
 The acceleration at the earth surface (due to earth gravity) is
                G * Me
    g_surface = ------
@@ -350,9 +267,9 @@ at distance R from earth center is
    g = --------------------- = (G * Me / Re^3) * R
              R^2
 
-   K = (G * Me / Re^3)
-
-   g = K * R
+       g_surface
+   g = --------- * R
+          Re
 
 The amount of Energy to lift an object of mass m from the earth center to R is:
         R
@@ -363,83 +280,19 @@ The amount of Energy to lift an object of mass m from the earth center to R is:
    E = Integral  (m * g) * dR
         0
 
-        R
-   E = Integral  (m * K * R) * dR
-        0
+        R             g_surface
+   E = Integral  (m * ---------- * R) * dR
+        0                Re
 
-   E = 1/2 * K * m * R^2
-
-The total potentail energy of a cone of water where the area of the cone at
-the earth surface is A, and the density of water is p, and the height of the
-cone is R:
-
-             R^2
-   m = (A * ----- * dR) * p
-            Re^2
-
-        Re
-   E = Integral  1/2 * K * m * R^2
-        0
-
-        Re                       R^2
-   E = Integral  1/2 * K * (A * ----- * dR * p) * R^2
-        0                       Re^2
-
-   K1 = 1/2 * K * A / Re^2 * p
-
-        Re
-   E = Integral  K1 * R^4 * dR
-        0 
-
-   E = 1/5 * K1 * R^5
-
-
-   K1 = 1/2 * (G * Me / Re^3) * A / Re^2 * p
-
-              G * Me
-   K1 = 1/2 * ------ * A * p
-               Re^5
-
-                G * Me          
-   E = ( 1/10 * ------ * A * p ) * R^5
-                 Re^5           
-
-  The units of the above equation for E are kg * m^2 / s^2.
-  This is the correct unit for Energy.
-
-Next, work g_surface into the above equation for total potential energy.
-        g_surface * Re^2
-   Me = ----------------
-             G
-
-                g_surface       
-   E = ( 1/10 * --------- * A * p ) * R^5
-                 Re^3           
-
-         A * p
-   E = --------- * g_surface * R^5
-       10 * Re^3
-
+                  g_surface
+   E = 1/2 * m  * --------- * R^2
+                     Re
 #endif
-    //XXX include the constant in the result too?
-    //return g_surface * powl(R, 5);
-    return g_surface * powl(R, 5);  // xxx this is much faster and with the same result
-}
-
-static long double delta_potential_energy(long double g_surface, long double height, long double delta_h)
+static long double potential_energy(long double m, long double g_surface, long double r)
 {
-    // XXX powl vs pow,  vs multiplying
-    return 5 * g_surface * powl(height,4) * delta_h;
-}
-
-static long double total_potential_energy(void)
-{
-    long double tpe = 0;
-
-    for (int i = 0; i < 360; i++) {
-        tpe += potential_energy(earth.g[i], earth.h[i]);
-    }
-    return tpe;
+    // xxx change r to R  or change comments above to use 'r'
+    // xxx use 0.5L ?
+    return 0.5 * m * (g_surface / EARTH_RADIUS) * (r * r);
 }
 
 // -----------------  UTILS  ----------------------------------------
