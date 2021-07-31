@@ -5,7 +5,7 @@
 #include <math.h>
 
 // This program calculates the location and height of the Earth's tidal bulges,
-//caused by the Moon. XXX refer to notes.txt
+// caused by the Moon. XXX refer to notes.txt
 
 //
 // defines
@@ -23,7 +23,7 @@
 #define DEG_TO_RAD(d)      ((d) * (M_PI/180))
 #define RAD_TO_DEG(r)      ((r) * (180/M_PI))
 
-#define DELTA_H            1e-3  // xxx does this affect it
+#define DELTA_H            1e-3
 
 //
 // typedefs
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
         double x, y, z, d;
         vector_t g, m, c, t;
 
-        x = xyz[i].x;
+        x = xyz[i].x;  // xxx elim var x,y,z
         y = xyz[i].y;
         z = xyz[i].z;
 
@@ -193,6 +193,7 @@ int main(int argc, char **argv)
                                      earth.g[j], 
                                      earth.h[j]-(DELTA_H/2));
 #else
+        // don't need a routine
         delta_pe = 0;
         delta_pe += potential_energy(square(earth.h[i]+(DELTA_H/2)),
                                      earth.g[i], 
@@ -298,9 +299,8 @@ static void init_xyz(void)
     }
     printf("max_xyz = %d\n", max_xyz);
     printf("  %e  %e\n",
-      max_xyz * square(size),
-      4 * M_PI * square(EARTH_RADIUS));
-    printf("%20f  %20f\n", M_PI, TWO_PI);
+           max_xyz * square(size),
+           4 * M_PI * square(EARTH_RADIUS));
 }
 
 // -----------------  POTENTIAL ENERGY  -----------------------------
