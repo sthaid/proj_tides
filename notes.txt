@@ -1,0 +1,87 @@
+// XXX
+
+// - doubles
+//   - cast floating point constants to double
+//   - use define for double
+
+// - spherical earth
+//   - does this change the result
+
+// - graphics
+//   - motion on/off
+//   - switch to remove the centriigul, or change its value
+//   - show the vectors at the 4 locations
+// - function for the pe
+
+// - write this up in README.md
+//   - include assumptions
+//   - what were my miconceptions
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+// Purpose: To calculate the location and height of the Earth's tidal bulges,
+//          caused by the Moon.
+
+// Coordinates Diagram
+// - The X,Y origin is at the center of mass.   XXX barycenter
+//   Both the Earth and the Moon have circular orbits about this point
+//
+//                           Y             
+//                           |
+//                  xxxxxxxxx|x
+//                 x         | x
+//                x          |  x
+//               x           |   x
+//    X  ------  x       *   O   x  ---------------------------------------- Moon
+//               x           |   x
+//                x          |  x
+//                 x         | x
+//                  xxxxxxxxx|x
+//                           | 
+//                       ^                                                      ^
+//                    earth.x                                                 moon.x
+
+
+// xxx cleanup and save old comments
+
+
+#if 0
+The acceleration at the earth surface (due to earth gravity) is
+               G * Me
+   g_surface = ------
+                Re^2
+
+Imagine a tunnel through the center of the earth, the accel of gravity
+at distance R from earth center is
+       G * (Me * R^3 / Re^3)
+   g = --------------------- = (G * Me / Re^3) * R
+             R^2
+
+       g_surface
+   g = --------- * R
+          Re
+
+The amount of Energy to lift an object of mass m from the earth center to R is:
+        R
+   E = Integral  F * dR
+        0
+
+        R
+   E = Integral  (m * g) * dR
+        0
+
+        R             g_surface
+   E = Integral  (m * ---------- * R) * dR
+        0                Re
+
+                  g_surface
+   E = 1/2 * m  * --------- * R^2
+                     Re
+#endif
+
+

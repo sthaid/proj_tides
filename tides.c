@@ -1,49 +1,11 @@
-// XXX
-
-// - doubles
-//   - cast floating point constants to double
-//   - use define for double
-
-// - spherical earth
-//   - does this change the result
-
-// - graphics
-//   - motion on/off
-//   - switch to remove the centriigul, or change its value
-//   - show the vectors at the 4 locations
-// - function for the pe
-
-// - write this up in README.md
-//   - include assumptions
-//   - what were my miconceptions
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-// Purpose: To calculate the location and height of the Earth's tidal bulges,
-//          caused by the Moon.
-
-// Coordinates Diagram
-// - The X,Y origin is at the center of mass.   XXX barycenter
-//   Both the Earth and the Moon have circular orbits about this point
-//
-//                           Y             
-//                           |
-//                  xxxxxxxxx|x
-//                 x         | x
-//                x          |  x
-//               x           |   x
-//    X  ------  x       *   O   x  ---------------------------------------- Moon
-//               x           |   x
-//                x          |  x
-//                 x         | x
-//                  xxxxxxxxx|x
-//                           | 
-//                       ^                                                      ^
-//                    earth.x                                                 moon.x
+// This program calculates the location and height of the Earth's tidal bulges,
+//caused by the Moon. XXX refer to notes.txt
 
 //
 // defines
@@ -61,8 +23,7 @@
 #define DEG_TO_RAD(d)      ((d) * (M_PI/180))
 #define RAD_TO_DEG(r)      ((r) * (180/M_PI))
 
-#define DELTA_H            1e-3
-
+#define DELTA_H            1e-3  // xxx does this affect it
 
 //
 // typedefs
@@ -212,7 +173,7 @@ int main(int argc, char **argv)
     printf("Running ...\n");
     int loops = 0;
     double earth_tpe_last = 0;
-    double m;
+    //double m;
     int tpe_unchanged_count = 0;
     while (true) {
         int i = random() % max_xyz;
@@ -343,43 +304,6 @@ static void init_xyz(void)
 }
 
 // -----------------  POTENTIAL ENERGY  -----------------------------
-
-// XXX put these notes in another file
-
-// xxx cleanup and save old comments
-#if 0
-The acceleration at the earth surface (due to earth gravity) is
-               G * Me
-   g_surface = ------
-                Re^2
-
-Imagine a tunnel through the center of the earth, the accel of gravity
-at distance R from earth center is
-       G * (Me * R^3 / Re^3)
-   g = --------------------- = (G * Me / Re^3) * R
-             R^2
-
-       g_surface
-   g = --------- * R
-          Re
-
-The amount of Energy to lift an object of mass m from the earth center to R is:
-        R
-   E = Integral  F * dR
-        0
-
-        R
-   E = Integral  (m * g) * dR
-        0
-
-        R             g_surface
-   E = Integral  (m * ---------- * R) * dR
-        0                Re
-
-                  g_surface
-   E = 1/2 * m  * --------- * R^2
-                     Re
-#endif
 
 // xxx maybe this doesnt need to be a routine
 static double potential_energy(double m, double g_surface, double r)
