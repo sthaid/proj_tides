@@ -1,8 +1,8 @@
 // XXX
 
 // - doubles
-//   - cast floating point constants to long double
-//   - use define for long double
+//   - cast floating point constants to double
+//   - use define for double
 
 // - spherical earth
 //   - does this change the result
@@ -69,9 +69,9 @@
 //
 
 typedef struct {
-    long double a;
-    long double b;
-    long double c;
+    double a;
+    double b;
+    double c;
 } vector_t;
 
 //
@@ -79,29 +79,29 @@ typedef struct {
 //
 
 struct {
-    long double x;
-    long double y;
-    long double z;
-    long double mass;
-    long double w;
+    double x;
+    double y;
+    double z;
+    double mass;
+    double w;
 } moon;
 
 struct {
-    long double x;
-    long double y;
-    long double z;
-    long double mass;
-    long double radius;
-    long double w;
-    long double g[100000];  // xxx rename g_surface
-    long double h[100000];  // xxx rename r
-    long double tpe;
+    double x;
+    double y;
+    double z;
+    double mass;
+    double radius;
+    double w;
+    double g[100000];  // xxx rename g_surface
+    double h[100000];  // xxx rename r
+    double tpe;
 } earth;
 
 struct {
-    long double x;
-    long double y;
-    long double z;
+    double x;
+    double y;
+    double z;
 } xyz[100000];  // xxx malloc ?
 int max_xyz;
 
@@ -110,10 +110,10 @@ int max_xyz;
 //
 
 static void init_xyz(void);
-static long double potential_energy(long double m, long double g_surface, long double r);
-static long double square(long double x);
-static long double magnitude(vector_t *v);
-static int set_vector_magnitude(vector_t *v, long double new_magnitude);
+static double potential_energy(double m, double g_surface, double r);
+static double square(double x);
+static double magnitude(vector_t *v);
+static int set_vector_magnitude(vector_t *v, double new_magnitude);
 
 // ---------------------------------------------------
 
@@ -138,19 +138,19 @@ int main(int argc, char **argv)
     moon.y  = 0;
     moon.z  = 0;
     printf("DIST_EARTH_MOON = %8.0f miles\n", METERS_TO_MILES(DIST_EARTH_MOON));
-    printf("earth.x         = %8.0Lf miles\n", METERS_TO_MILES(earth.x));
-    printf("moon.x          = %8.0Lf miles\n", METERS_TO_MILES(moon.x));
+    printf("earth.x         = %8.0f miles\n", METERS_TO_MILES(earth.x));
+    printf("moon.x          = %8.0f miles\n", METERS_TO_MILES(moon.x));
 
     // Determine the angular velocity of both the earth and the moon; they should be the same.
     // The centrifugal force must equal the gravitational force for a circular orbit
     //   gravity_force = moon.mass * moon.w^2 * moon.x
-    long double gravity_force = G * earth.mass * moon.mass / (DIST_EARTH_MOON * DIST_EARTH_MOON);
+    double gravity_force = G * earth.mass * moon.mass / (DIST_EARTH_MOON * DIST_EARTH_MOON);
     moon.w  = sqrt(gravity_force / (moon.mass * fabs(moon.x)));
     earth.w = sqrt(gravity_force / (earth.mass * fabs(earth.x)));
     // xxx sanity check they are within .0000001
-    printf("moon.w         = %Le\n", moon.w);
-    printf("earth.w        = %Le\n", earth.w);
-    printf("orbital period = %Lf days\n", TWO_PI / moon.w / 86400);
+    printf("moon.w         = %e\n", moon.w);
+    printf("earth.w        = %e\n", earth.w);
+    printf("orbital period = %f days\n", TWO_PI / moon.w / 86400);
     printf("\n");
 
     //xxx
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 
     // xxx comment
     for (int i = 0; i < max_xyz; i++) {
-        long double x, y, z, d;
+        double x, y, z, d;
         vector_t g, m, c, t;
 
         x = xyz[i].x;
@@ -200,24 +200,24 @@ int main(int argc, char **argv)
         earth.g[i] = magnitude(&t);
 
         if (i == 0 || i == 90 || i == 180 || i == 270) {
-            printf("%3d: earth gravity     = %0.9Lf %0.9Lf %0.9Lf\n", i, g.a, g.b, g.c);
-            printf("     moon gravity      = %0.9Lf %0.9Lf %0.9Lf\n", m.a, m.b, m.c);
-            printf("     centrifugal accel = %0.9Lf %0.9Lf %0.9Lf\n", c.a, c.b, c.c);
-            printf("     total             = %0.9Lf %0.9Lf %0.9Lf\n", t.a, t.b, t.c);
-            printf("     MAGNITUDE         = %0.9Lf\n", earth.g[i]);
+            printf("%3d: earth gravity     = %0.9f %0.9f %0.9f\n", i, g.a, g.b, g.c);
+            printf("     moon gravity      = %0.9f %0.9f %0.9f\n", m.a, m.b, m.c);
+            printf("     centrifugal accel = %0.9f %0.9f %0.9f\n", c.a, c.b, c.c);
+            printf("     total             = %0.9f %0.9f %0.9f\n", t.a, t.b, t.c);
+            printf("     MAGNITUDE         = %0.9f\n", earth.g[i]);
             printf("\n");
         }
     }
 
     printf("Running ...\n");
     int loops = 0;
-    long double earth_tpe_last = 0;
-    long double m;
+    double earth_tpe_last = 0;
+    double m;
     int tpe_unchanged_count = 0;
     while (true) {
         int i = random() % max_xyz;
         int j = random() % max_xyz;
-        long double delta_pe;
+        double delta_pe;
         if (i == j) continue;
 
 #if 0
@@ -249,7 +249,7 @@ int main(int argc, char **argv)
 
         loops++;
         if ((loops % 10000) == 0) {
-            //printf("   loops = %9d   tpe = %0.10Le   tpe_unchanged_count = %d\n", loops, earth.tpe, tpe_unchanged_count);
+            //printf("   loops = %9d   tpe = %0.10e   tpe_unchanged_count = %d\n", loops, earth.tpe, tpe_unchanged_count);
             if (earth.tpe == earth_tpe_last) {
                 tpe_unchanged_count++;
                 // AAAA XXX
@@ -264,18 +264,19 @@ int main(int argc, char **argv)
   
     // print results
     printf("Results ...\n");
-    long double minh=1e99, maxh=-1e99;
+    double minh=1e99, maxh=-1e99;
     for (int i = 0; i < max_xyz; i++) {
-        long double h = earth.h[i];
+        double h = earth.h[i];
         if (i == 0 || i == 90 || i == 180 || i == 270) {
-            printf("   deg = %3d   height = %0.10Lf  height-earth_radius = %+0.6Lf\n", 
+            printf("   deg = %3d   height = %0.10f  height-earth_radius = %+0.6f\n", 
                    i, h, h-earth.radius);
         }
+// XXX print out which is min and max
         if (h < minh) minh = h;
         if (h > maxh) maxh = h;
     }
     printf("\n");
-    printf("   min = %LF max = %LF  Range = %LF\n", minh, maxh, maxh-minh);
+    printf("   min = %f max = %f  Range = %f\n", minh, maxh, maxh-minh);
 
     // done
     return 0;
@@ -335,13 +336,15 @@ static void init_xyz(void)
         }
     }
     printf("max_xyz = %d\n", max_xyz);
-    printf("  %Le  %Le\n",
+    printf("  %e  %e\n",
       max_xyz * square(size),
       4 * M_PI * square(EARTH_RADIUS));
     printf("%20f  %20f\n", M_PI, TWO_PI);
 }
 
 // -----------------  POTENTIAL ENERGY  -----------------------------
+
+// XXX put these notes in another file
 
 // xxx cleanup and save old comments
 #if 0
@@ -377,28 +380,31 @@ The amount of Energy to lift an object of mass m from the earth center to R is:
    E = 1/2 * m  * --------- * R^2
                      Re
 #endif
-static long double potential_energy(long double m, long double g_surface, long double r)
+
+// xxx maybe this doesnt need to be a routine
+static double potential_energy(double m, double g_surface, double r)
 {
     // xxx change r to R  or change comments above to use 'r'
     // xxx use 0.5L ?
-    return 0.5 * m * (g_surface / EARTH_RADIUS) * (r * r);
+    //return 0.5 * m * (g_surface / EARTH_RADIUS) * (r * r);
+    return m * g_surface * r * r;
 }
 
 // -----------------  UTILS  ----------------------------------------
 
-static long double square(long double x)
+static double square(double x)
 {
     return x * x;
 }
 
-static long double magnitude(vector_t *v)
+static double magnitude(vector_t *v)
 {
     return sqrt( square(v->a) + square(v->b) + square(v->c) );
 }
 
-static int set_vector_magnitude(vector_t *v, long double new_magnitude)
+static int set_vector_magnitude(vector_t *v, double new_magnitude)
 {
-    long double current_magnitude, factor;
+    double current_magnitude, factor;
 
     current_magnitude = magnitude(v);
     if (current_magnitude == 0) {
