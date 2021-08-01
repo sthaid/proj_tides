@@ -1,11 +1,16 @@
+main.c
+
+tides.c
+
+graphics.c
+
+util_sdl.c
+
+
+common.h
+
+
 // XXX
-
-// - doubles
-//   - cast floating point constants to double
-//   - use define for double
-
-// - spherical earth
-//   - does this change the result
 
 // - graphics
 //   - motion on/off
@@ -83,5 +88,11 @@ The amount of Energy to lift an object of mass m from the earth center to R is:
    E = 1/2 * m  * --------- * R^2
                      Re
 #endif
+
+
+
+m =   A  * delta_r  * p
+
+      A =  k * (R^2 / Re^2)
 
 
