@@ -25,7 +25,6 @@
 #define EARTH_GRAVITY      9.81             // gravity of earth, m/s/s
 #endif
 
-#define DELTA_R            1e-3
 
 #if 0
 #define METERS_TO_MILES(m)          ((m) * 0.000621371)
@@ -250,7 +249,9 @@ static void *tides_thread(void *cx)
         if (time_now - time_last > 20000 || time_last == 0) {
 #ifndef UNIT_TEST
             theta = (time_last == 0 ? 0 : theta+.1);
-            xxx(theta);
+            if (time_last == 0) {
+                xxx(theta);  //xxx
+            }
             time_last = time_now;
 #else
             theta = 0;
@@ -263,9 +264,13 @@ static void *tides_thread(void *cx)
 
         int i = random() % earth.max_surface;
         int j = random() % earth.max_surface;
-        double delta_pe=0, m, g_surface, r;
 
         if (i == j) continue;
+
+#if 0
+        #define DELTA_R            1e-3
+
+        double delta_pe=0, m, g_surface, r;
 
         m         = square(earth.surface[i].r + (DELTA_R/2));
         g_surface = earth.surface[i].g;
@@ -280,12 +285,33 @@ static void *tides_thread(void *cx)
         if (delta_pe < 0) {
             earth.surface[i].r += DELTA_R;
             earth.surface[j].r -= DELTA_R;
+            earth.tpe += delta_pe;  // xxx del ?
+        }
+#else
+        double delta_pe = 0;
+        double m, g_surface, r;
+
+        m         = 1;
+        g_surface = earth.surface[i].g;
+        r         = earth.surface[i].r + .0005;
+        delta_pe += m * g_surface * square(r);
+
+        m         = 1;
+        g_surface = earth.surface[j].g;
+        r         = earth.surface[j].r - .0005;
+        delta_pe -= m * g_surface * square(r);
+
+        if (delta_pe < 0) {
+            earth.surface[i].r += (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].r);
+            earth.surface[j].r -= (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].r);
             earth.tpe += delta_pe;
         }
+#endif
 
-        //if ((++loops % 1000000) == 0) {
-        //    printf("   loops = %9d   tpe = %0.9e\n", loops, earth.tpe);
-        //}
+
+        if ((++loops % 1000000) == 0) {
+            printf("   loops = %9d   tpe = %0.9e\n", loops, earth.tpe);
+        }
     }
 
     return NULL;
