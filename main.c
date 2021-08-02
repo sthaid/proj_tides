@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <math.h>
 #include <assert.h>
 
 #include <util_logging.h>
 #include <util_sdl.h>
+#include <tides.h>
 
-#define REQUESTE_WIN_WIDTH  1500
-#define REQUESTE_WIN_HEIGHT 800
+#define REQUESTE_WIN_WIDTH  1200
+#define REQUESTE_WIN_HEIGHT 1000
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 
@@ -20,7 +22,7 @@ int main(int argc, char **argv)
 
     INFO("hello\n");
 
-    //tides_init()
+    tides_init();
 
     // init sdl
     if (sdl_init(&win_width, &win_height, false, false) < 0) {
@@ -49,7 +51,11 @@ int main(int argc, char **argv)
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
-    rect_t * pane = &pane_cx->pane;
+    static rect_t  * pane;
+    static double    esf;
+    static double    msf;
+    static texture_t earth_texture;
+    static texture_t moon_texture;
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -57,6 +63,15 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
 
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
         DEBUG("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
+
+        pane = &pane_cx->pane;
+        esf = 120 / 6.4e6;
+        earth_texture = sdl_create_filled_circle_texture(EARTH_RADIUS * esf, WHITE);
+
+        //msf = 500 / 4.0e8;
+        msf = 500 / 3.797e8;
+        moon_texture = sdl_create_filled_circle_texture(20, WHITE);
+
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -65,8 +80,47 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        rect_t loc = {pane->w/2-100, pane->h/2-100, 200, 200};
-        sdl_render_rect(pane, &loc, 1, WHITE);
+        //rect_t loc = {pane->w/2-100, pane->h/2-100, 200, 200};
+        //sdl_render_rect(pane, &loc, 1, WHITE);
+
+        int x_ctr = pane->h/2;
+        int y_ctr = pane->h/2;
+        int w     = pane->h;
+        int h     = pane->h;
+
+int earth_texture_width, earth_texture_height;
+int moon_texture_width, moon_texture_height;
+        sdl_render_line(pane, 0, y_ctr, w-1, y_ctr, WHITE);
+        sdl_render_line(pane, x_ctr, 0, x_ctr, h-1, WHITE);
+
+        sdl_render_line(pane, w-1, 0, w-1, h-1, WHITE);
+
+        sdl_query_texture(earth_texture, &earth_texture_width, &earth_texture_height);
+        sdl_render_texture(pane, 
+                           x_ctr - earth_texture_width/2 + esf * earth.x,
+                           y_ctr - earth_texture_height/2 - esf * earth.y,
+                           earth_texture);
+
+        sdl_render_point(pane, x_ctr, y_ctr, BLACK, 5);
+        sdl_render_point(pane, 
+                         x_ctr + esf * earth.x,
+                         y_ctr - esf * earth.y,
+                         GREEN, 5);
+
+        sdl_query_texture(moon_texture, &moon_texture_width, &moon_texture_height);
+        sdl_render_texture(pane, 
+                           x_ctr - moon_texture_width/2 + msf * moon.x,
+                           y_ctr - moon_texture_height/2 - msf * moon.y,
+                           moon_texture);
+
+
+        // xxx use lines, and fill in
+        for (int i = 0; i < 360; i++) {
+// xxx nearbyint
+            int x = x_ctr + ((EARTH_RADIUS + 1e7*(earth.surface[i%360].r-EARTH_RADIUS)) * cos(DEG_TO_RAD(i)) + earth.x) * esf;
+            int y = y_ctr - ((EARTH_RADIUS + 1e7*(earth.surface[i%360].r-EARTH_RADIUS)) * sin(DEG_TO_RAD(i)) + earth.y) * esf;
+            sdl_render_point(pane, x, y, LIGHT_BLUE, 2);
+        }
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
