@@ -20,8 +20,10 @@ int main(int argc, char **argv)
     int win_width  = REQUESTE_WIN_WIDTH;
     int win_height = REQUESTE_WIN_HEIGHT;
 
-    INFO("hello\n");
+    // set control params to their default values
+    motion_enabled = true;
 
+    // init tides
     tides_init();
 
     // init sdl
@@ -39,7 +41,7 @@ int main(int argc, char **argv)
         NULL,           // context
         NULL,           // called prior to pane handlers
         NULL,           // called after pane handlers
-        50000,          // 0=continuous, -1=never, else us
+        1000,           // 0=continuous, -1=never, else us
         1,              // number of pane handler varargs that follow
         pane_hndlr, NULL, 0, 0, win_width, win_height, PANE_BORDER_STYLE_NONE);
 
@@ -115,12 +117,17 @@ int moon_texture_width, moon_texture_height;
 
 
         // xxx use lines, and fill in
+        int count=0;
+        double k = 2e6;
+        point_t points[361];
         for (int i = 0; i < 360; i++) {
-// xxx nearbyint
-            int x = x_ctr + ((EARTH_RADIUS + 1e7*(earth.surface[i%360].r-EARTH_RADIUS)) * cos(DEG_TO_RAD(i)) + earth.x) * esf;
-            int y = y_ctr - ((EARTH_RADIUS + 1e7*(earth.surface[i%360].r-EARTH_RADIUS)) * sin(DEG_TO_RAD(i)) + earth.y) * esf;
-            sdl_render_point(pane, x, y, LIGHT_BLUE, 2);
+            points[count].x = x_ctr + nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
+            points[count].y = y_ctr - nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
+            count++;
         }
+        points[360] = points[0];
+        count++;
+        sdl_render_lines(pane, points, count, LIGHT_BLUE);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -137,6 +144,7 @@ int moon_texture_width, moon_texture_height;
         case 'q':  // quit
             rc = PANE_HANDLER_RET_PANE_TERMINATE;
             break;
+        // xxx add ctrls to enable motion and enable sun
         }
 
         return rc;
