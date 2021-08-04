@@ -1,4 +1,23 @@
-// xxx more comments needed
+// xxx
+// - ctrls
+//   - motion
+//   - sun
+//   - vectors
+//   - maybe disable centrifigul force
+// - fill in the blue areafill in the blue areafill in the blue area
+// - in right side, print out the min and max tides
+
+// ---------------
+
+// xxx lower prio
+// - more comments needed
+// - verify the min and max are at latitude 0
+
+// xxx maybe ...
+// - option to add the sun ?
+
+// xxx misc,  
+// - backup proj and zz dirs
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -10,6 +29,7 @@
 #include <pthread.h>
 #include <assert.h>
 
+#include <vectors.h>
 #include <tides.h>
 
 //
@@ -20,12 +40,6 @@
 // typedefs
 //
 
-typedef struct {
-    double a;
-    double b;
-    double c;
-} vector_t;
-
 //
 // variables
 //
@@ -35,14 +49,20 @@ typedef struct {
 //
 
 static void init_earth_surface_xyz(void);
-
 static void *tides_thread(void *cx);
 static void set_earth_and_moon_position(double theta);
 
-static double square(double x);
-static double magnitude(vector_t *v);
-static int set_vector_magnitude(vector_t *v, double new_magnitude);
-static uint64_t microsec_timer(void);
+//
+// inline functions
+//
+
+static inline double square(double x) { return x * x; }
+
+static inline uint64_t microsec_timer(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC,&ts);
+    return  ((uint64_t)ts.tv_sec * 1000000) + ((uint64_t)ts.tv_nsec / 1000);
+}
 
 // -----------------  INIT  --------------------------
 
@@ -51,10 +71,10 @@ void tides_init(void)
     pthread_t tid;
 
     // init constant fields of the earth and moon structs.
-    earth.mass   = EARTH_MASS;
-    moon.mass    = MOON_MASS;
-    earth.radius = EARTH_RADIUS;
-    for (int i = 0; i < 100000; i++) {
+    earth.mass   = EARTH_MASS;  // xxx get rid of some of these
+    moon.mass    = MOON_MASS;   // xxx
+    earth.radius = EARTH_RADIUS;   // xxx
+    for (int i = 0; i < MAX_EARTH_SURFACE; i++) {
         earth.surface[i].r = EARTH_RADIUS;
     }
 
@@ -151,10 +171,15 @@ static void init_earth_surface_xyz(void)
 static void *tides_thread(void *cx)
 {
     int loops = 0;
-    double theta=0;
+    double theta;
     uint64_t done_us;
 
+restart:
     // set the initial earth and moon positions, at theta=0
+    theta = 0;
+    for (int i = 0; i < MAX_EARTH_SURFACE; i++) {  // xxx rese tin 2places
+        earth.surface[i].r = EARTH_RADIUS;
+    }
     set_earth_and_moon_position(theta);
 
     while (true) {
@@ -168,36 +193,43 @@ static void *tides_thread(void *cx)
             double delta_pe = 0;
             double m, g_surface, r;
 
+            double dr_i = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].r);
+            double dr_j = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].r);
+
             m         = 1;
             g_surface = earth.surface[i].g;
-            r         = earth.surface[i].r + .0005;  // xxx replace .0005
+            r         = earth.surface[i].r + dr_i/2;
             delta_pe += m * g_surface * square(r);
 
             m         = 1;
             g_surface = earth.surface[j].g;
-            r         = earth.surface[j].r - .0005;
+            r         = earth.surface[j].r - dr_j/2;
             delta_pe -= m * g_surface * square(r);
 
             if (delta_pe < 0) {
-                earth.surface[i].r += (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].r);
-                earth.surface[j].r -= (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].r);
-                earth.tpe += delta_pe;
+                earth.surface[i].r += dr_i;
+                earth.surface[j].r -= dr_j;
             }
 
             loops++;
-            if (motion_enabled && (loops % 20000) == 0) {
+            if (motion && (loops % 20000) == 0) {
                 if (microsec_timer() > done_us) {
                     break;
                 }
             }
 
+            if (reset_request) {
+                reset_request = false;
+                goto restart;
+            }
+
             //if ((loops % 1000000) == 0) {
-            //    printf("   loops = %9d   tpe = %0.9e\n", loops, earth.tpe);
+            //    printf("   loops = %9d\n", loops);
             //}
         }
 
         // advance the earth and moon orbital positions by 0.1 degrees;
-        // note: this code is reached only if motion_enabled is true
+        // note: this code is reached only if motion is enabled
         theta += 0.1;
         set_earth_and_moon_position(theta);
     }
@@ -227,35 +259,52 @@ static void set_earth_and_moon_position(double theta)
         vector_t g, m, c, t;
         double d;
 
-        g.a = earth.x - (earth.surface[i].x + earth.x);
-        g.b = earth.y - (earth.surface[i].y + earth.y);
-        g.c = earth.z - (earth.surface[i].z + earth.z);
-        set_vector_magnitude(&g, EARTH_GRAVITY);
+        vector_init(&g,
+                    earth.x - (earth.surface[i].x + earth.x),
+                    earth.y - (earth.surface[i].y + earth.y),
+                    earth.z - (earth.surface[i].z + earth.z));
+        vector_set_magnitude(&g, EARTH_GRAVITY);
 
-        m.a = moon.x - (earth.surface[i].x + earth.x);
-        m.b = moon.y - (earth.surface[i].y + earth.y);
-        m.c = moon.z - (earth.surface[i].z + earth.z);
-        d = magnitude(&m);
-        set_vector_magnitude(&m, G * moon.mass / square(d));
+        vector_init(&m,
+                    moon.x - (earth.surface[i].x + earth.x),
+                    moon.y - (earth.surface[i].y + earth.y),
+                    moon.z - (earth.surface[i].z + earth.z));
+        d = vector_get_magnitude(&m);
+        vector_set_magnitude(&m, G * moon.mass / square(d));
 
-        c.a = earth.x;
-        c.b = earth.y;
-        c.c = earth.z;
-        d = magnitude(&c);
-        set_vector_magnitude(&c,  square(earth.w) * d);
+#if 1
+        vector_init(&c, earth.x, earth.y, earth.z);
+        d = vector_get_magnitude(&c);
+        vector_set_magnitude(&c,  square(earth.w) * d);
+#else
+        memset(&c, 0, sizeof(c));
+#endif
 
-        t.a = g.a + m.a + c.a;
-        t.b = g.b + m.b + c.b;
-        t.c = g.c + m.c + c.c;
-        earth.surface[i].g = magnitude(&t);
+        vector_init(&t, 0, 0, 0);
+        vector_add(&t, &g);
+        vector_add(&t, &m);
+        vector_add(&t, &c);
+        earth.surface[i].g = vector_get_magnitude(&t);
 
-#if 0
+        if (i < 360) {
+            vector_t *v = &earth.surface[i].v;
+            vector_init(v, 0, 0, 0);
+            vector_add(v, &m);
+            vector_add(v, &c);
+
+            //if (i == 0 || i == 90 || i == 180 || i== 270) {
+                //printf("vect[%d] = %e %e %e\n", i, v->a, v->b, v->c);
+            //}
+        }            
+
+#if 1
         if (i == theta+0 || i == theta+90 || i == theta+180 || i == theta+270) {
             if (i == 0) printf("accel vectors:\n");
             printf("%3d: earth gravity     = %+0.9f %+0.9f %+0.9f\n", i, g.a, g.b, g.c);
             printf("     moon gravity      = %+0.9f %+0.9f %+0.9f\n", m.a, m.b, m.c);
             printf("     centrifugal accel = %+0.9f %+0.9f %+0.9f\n", c.a, c.b, c.c);
             printf("     total             = %+0.9f %+0.9f %+0.9f\n", t.a, t.b, t.c);
+            printf("     moon+centrifugal  = %e %e %e\n", earth.surface[i].v.a, earth.surface[i].v.b, earth.surface[i].v.c);
             printf("     MAGNITUDE         = %0.9f\n", earth.surface[i].g);
             if (i == 270) printf("\n");
         }
@@ -263,42 +312,6 @@ static void set_earth_and_moon_position(double theta)
     }
 
     //printf("set_earth_and_moon_position DURATION = %ld us\n", (microsec_timer()-start));
-}
-
-// -----------------  UTILS  -------------------------
-
-static double square(double x)
-{
-    return x * x;
-}
-
-static double magnitude(vector_t *v)
-{
-    return sqrt( square(v->a) + square(v->b) + square(v->c) );
-}
-
-static int set_vector_magnitude(vector_t *v, double new_magnitude)
-{
-    double current_magnitude, factor;
-
-    current_magnitude = magnitude(v);
-    assert(current_magnitude > 0);
-
-    factor = new_magnitude / current_magnitude;
-
-    v->a *= factor;
-    v->b *= factor;
-    v->c *= factor;
-
-    return 0;
-}
-
-static uint64_t microsec_timer(void)
-{
-    struct timespec ts;
-
-    clock_gettime(CLOCK_MONOTONIC,&ts);
-    return  ((uint64_t)ts.tv_sec * 1000000) + ((uint64_t)ts.tv_nsec / 1000);
 }
 
 // -----------------  UNIT TEST  ---------------------

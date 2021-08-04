@@ -4,12 +4,13 @@
 #include <math.h>
 #include <assert.h>
 
-#include <util_logging.h>
+#include <util_logging.h>  // xxx maybe just printf here
 #include <util_sdl.h>
+#include <vectors.h>
 #include <tides.h>
 
-#define REQUESTE_WIN_WIDTH  1200
-#define REQUESTE_WIN_HEIGHT 1000
+#define REQUESTE_WIN_WIDTH  1500
+#define REQUESTE_WIN_HEIGHT 900
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 
@@ -21,7 +22,8 @@ int main(int argc, char **argv)
     int win_height = REQUESTE_WIN_HEIGHT;
 
     // set control params to their default values
-    motion_enabled = true;
+    motion = false;  // xxx defines for default
+    vectors = true;
 
     // init tides
     tides_init();
@@ -59,6 +61,11 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     static texture_t earth_texture;
     static texture_t moon_texture;
 
+    #define FONTSZ  40
+    #define SDL_EVENT_RESET     (SDL_EVENT_USER_DEFINED + 1)
+    #define SDL_EVENT_MOTION    (SDL_EVENT_USER_DEFINED + 2)
+    #define SDL_EVENT_VECTORS   (SDL_EVENT_USER_DEFINED + 3)
+
     // ----------------------------
     // -------- INITIALIZE --------
     // ----------------------------
@@ -71,7 +78,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         earth_texture = sdl_create_filled_circle_texture(EARTH_RADIUS * esf, WHITE);
 
         //msf = 500 / 4.0e8;
-        msf = 500 / 3.797e8;
+        msf = 430 / 3.797e8;
         moon_texture = sdl_create_filled_circle_texture(20, WHITE);
 
         return PANE_HANDLER_RET_NO_ACTION;
@@ -103,11 +110,14 @@ int moon_texture_width, moon_texture_height;
                            y_ctr - earth_texture_height/2 - esf * earth.y,
                            earth_texture);
 
-        sdl_render_point(pane, x_ctr, y_ctr, BLACK, 5);
+        sdl_render_point(pane, x_ctr, y_ctr, BLACK, 3);
+
+#if 0
         sdl_render_point(pane, 
                          x_ctr + esf * earth.x,
                          y_ctr - esf * earth.y,
-                         GREEN, 5);
+                         GREEN, 3);
+#endif
 
         sdl_query_texture(moon_texture, &moon_texture_width, &moon_texture_height);
         sdl_render_texture(pane, 
@@ -118,16 +128,60 @@ int moon_texture_width, moon_texture_height;
 
         // xxx use lines, and fill in
         int count=0;
-        double k = 2e6;
         point_t points[361];
+#if 1
+        double k = 2e6;
         for (int i = 0; i < 360; i++) {
             points[count].x = x_ctr + nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
             points[count].y = y_ctr - nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
             count++;
         }
+#else
+        for (int i = 0; i < 360; i++) {
+            double k = 1e5;
+            points[count].x = x_ctr + nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+12.5)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
+            points[count].y = y_ctr - nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+12.5)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
+            count++;
+        }
+#endif
         points[360] = points[0];
         count++;
         sdl_render_lines(pane, points, count, LIGHT_BLUE);
+
+
+        if (vectors) {
+            double x1, x2,y1, y2;
+            for (int i = 0; i < 360; i += 10) {
+                x1 = x_ctr + (((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
+                y1 = y_ctr - (((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
+
+                vector_t *v = &earth.surface[i].v;
+                x2 = x1 + (v->a * 100000000.);
+                y2 = y1 - (v->b * 100000000.);
+
+                // xxx nearbyint
+                sdl_render_line(pane, x1,y1, x2,y2, RED);
+                sdl_render_point(pane, x2,y2, RED, 2);
+            }
+        }
+
+        sdl_render_text_and_register_event(
+                pane, w+10, ROW2Y(0,FONTSZ), FONTSZ, 
+                "RESET", 
+                LIGHT_BLUE, BLACK,
+                SDL_EVENT_RESET, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sdl_render_text_and_register_event(
+                pane, w+10, ROW2Y(2,FONTSZ), FONTSZ, 
+                motion ? "MOTION IS ON" : "MOTION IS OFF",
+                LIGHT_BLUE, BLACK,
+                SDL_EVENT_MOTION, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sdl_render_text_and_register_event(
+                pane, w+10, ROW2Y(4,FONTSZ), FONTSZ, 
+                vectors ? "VECTORS ARE ON" : "VECTORS ARE OFF",
+                LIGHT_BLUE, BLACK,
+                SDL_EVENT_VECTORS, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -143,6 +197,17 @@ int moon_texture_width, moon_texture_height;
         switch (event->event_id) {
         case 'q':  // quit
             rc = PANE_HANDLER_RET_PANE_TERMINATE;
+            break;
+        case SDL_EVENT_RESET:
+            motion = false;
+            vectors = true;
+            reset_request = true;
+            break;
+        case SDL_EVENT_MOTION:
+            motion = !motion;
+            break;
+        case SDL_EVENT_VECTORS:
+            vectors = !vectors;
             break;
         // xxx add ctrls to enable motion and enable sun
         }
