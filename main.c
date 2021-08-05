@@ -12,6 +12,14 @@
 #define REQUESTE_WIN_WIDTH  1500
 #define REQUESTE_WIN_HEIGHT 900
 
+static struct ctrls_s default_ctrls = {
+    .reset_request           = false,
+    .moon_motion_enabled     = false,
+    .vectors_display_enabled = true,
+    .moon_enabled            = true,
+    .sun_enabled             = false,
+};
+
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 
 // --------------------------------------------------------------------------------
@@ -22,8 +30,7 @@ int main(int argc, char **argv)
     int win_height = REQUESTE_WIN_HEIGHT;
 
     // set control params to their default values
-    motion = false;  // xxx defines for default
-    vectors = true;
+    ctrls = default_ctrls;
 
     // init tides
     tides_init();
@@ -62,9 +69,11 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     static texture_t moon_texture;
 
     #define FONTSZ  40
-    #define SDL_EVENT_RESET     (SDL_EVENT_USER_DEFINED + 1)
-    #define SDL_EVENT_MOTION    (SDL_EVENT_USER_DEFINED + 2)
-    #define SDL_EVENT_VECTORS   (SDL_EVENT_USER_DEFINED + 3)
+    #define SDL_EVENT_RESET             (SDL_EVENT_USER_DEFINED + 1)
+    #define SDL_EVENT_MOON_MOTION       (SDL_EVENT_USER_DEFINED + 2)
+    #define SDL_EVENT_DISPLAY_VECTORS   (SDL_EVENT_USER_DEFINED + 3)
+    #define SDL_EVENT_MOON              (SDL_EVENT_USER_DEFINED + 4)
+    #define SDL_EVENT_SUN               (SDL_EVENT_USER_DEFINED + 5)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -119,37 +128,28 @@ int moon_texture_width, moon_texture_height;
                          GREEN, 3);
 #endif
 
-        sdl_query_texture(moon_texture, &moon_texture_width, &moon_texture_height);
-        sdl_render_texture(pane, 
-                           x_ctr - moon_texture_width/2 + msf * moon.x,
-                           y_ctr - moon_texture_height/2 - msf * moon.y,
-                           moon_texture);
+        if (ctrls.moon_enabled) {
+            sdl_query_texture(moon_texture, &moon_texture_width, &moon_texture_height);
+            sdl_render_texture(pane, 
+                            x_ctr - moon_texture_width/2 + msf * moon.x,
+                            y_ctr - moon_texture_height/2 - msf * moon.y,
+                            moon_texture);
+        }
 
-
-        // xxx use lines, and fill in
+        // xxx fill in
         int count=0;
         point_t points[361];
-#if 1
         double k = 2e6;
         for (int i = 0; i < 360; i++) {
             points[count].x = x_ctr + nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
             points[count].y = y_ctr - nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
             count++;
         }
-#else
-        for (int i = 0; i < 360; i++) {
-            double k = 1e5;
-            points[count].x = x_ctr + nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+12.5)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
-            points[count].y = y_ctr - nearbyint(((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+12.5)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
-            count++;
-        }
-#endif
         points[360] = points[0];
         count++;
         sdl_render_lines(pane, points, count, LIGHT_BLUE);
 
-
-        if (vectors) {
+        if (ctrls.vectors_display_enabled) {
             double x1, x2,y1, y2;
             for (int i = 0; i < 360; i += 10) {
                 x1 = x_ctr + (((EARTH_RADIUS + k*(earth.surface[i].r-EARTH_RADIUS+0.5)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
@@ -164,6 +164,7 @@ int moon_texture_width, moon_texture_height;
                 sdl_render_point(pane, x2,y2, RED, 2);
             }
         }
+// xxx display theta and tides
 
         sdl_render_text_and_register_event(
                 pane, w+10, ROW2Y(0,FONTSZ), FONTSZ, 
@@ -173,15 +174,27 @@ int moon_texture_width, moon_texture_height;
 
         sdl_render_text_and_register_event(
                 pane, w+10, ROW2Y(2,FONTSZ), FONTSZ, 
-                motion ? "MOTION IS ON" : "MOTION IS OFF",
+                ctrls.moon_motion_enabled ? "MOTION IS ON" : "MOTION IS OFF",
                 LIGHT_BLUE, BLACK,
-                SDL_EVENT_MOTION, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+                SDL_EVENT_MOON_MOTION, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
         sdl_render_text_and_register_event(
                 pane, w+10, ROW2Y(4,FONTSZ), FONTSZ, 
-                vectors ? "VECTORS ARE ON" : "VECTORS ARE OFF",
+                ctrls.vectors_display_enabled ? "VECTORS ARE ON" : "VECTORS ARE OFF",
                 LIGHT_BLUE, BLACK,
-                SDL_EVENT_VECTORS, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+                SDL_EVENT_DISPLAY_VECTORS, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sdl_render_text_and_register_event(
+                pane, w+10, ROW2Y(6,FONTSZ), FONTSZ, 
+                ctrls.moon_enabled ? "MOON IS ENABLED" : "MOON IS DISABLED",
+                LIGHT_BLUE, BLACK,
+                SDL_EVENT_MOON, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sdl_render_text_and_register_event(
+                pane, w+10, ROW2Y(8,FONTSZ), FONTSZ, 
+                ctrls.sun_enabled ? "SUN IS ENABLED" : "SUN IS DISABLED",
+                LIGHT_BLUE, BLACK,
+                SDL_EVENT_SUN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -199,17 +212,22 @@ int moon_texture_width, moon_texture_height;
             rc = PANE_HANDLER_RET_PANE_TERMINATE;
             break;
         case SDL_EVENT_RESET:
-            motion = false;
-            vectors = true;
-            reset_request = true;
+            ctrls = default_ctrls;
+            ctrls.reset_request = true;
             break;
-        case SDL_EVENT_MOTION:
-            motion = !motion;
+        case SDL_EVENT_MOON_MOTION:
+            ctrls.moon_motion_enabled = !ctrls.moon_motion_enabled;
             break;
-        case SDL_EVENT_VECTORS:
-            vectors = !vectors;
+        case SDL_EVENT_DISPLAY_VECTORS:
+            ctrls.vectors_display_enabled = !ctrls.vectors_display_enabled;
             break;
-        // xxx add ctrls to enable motion and enable sun
+        case SDL_EVENT_MOON:
+            ctrls.moon_enabled = !ctrls.moon_enabled;
+            break;
+        case SDL_EVENT_SUN:
+            ctrls.sun_enabled = !ctrls.sun_enabled;
+            break;
+// xxx key ctrls + - m s v r
         }
 
         return rc;
