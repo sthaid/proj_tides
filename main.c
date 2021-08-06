@@ -308,6 +308,10 @@ r m s v g + - M
             break;
         }
 
+        if (ctrls.moon_enabled == false) {
+            ctrls.motion = false;
+        }
+
         return rc;
     }
 
