@@ -1,24 +1,3 @@
-// xxx
-// - ctrls
-//   - motion
-//   - sun
-//   - vectors
-//   - maybe disable centrifigul force
-// - fill in the blue areafill in the blue areafill in the blue area
-// - in right side, print out the min and max tides
-
-// ---------------
-
-// xxx lower prio
-// - more comments needed
-// - verify the min and max are at latitude 0
-
-// xxx maybe ...
-// - option to add the sun ?
-
-// xxx misc,  
-// - backup proj and zz dirs
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -36,6 +15,8 @@
 // defines
 //
 
+#define USE_MAX_SURFACE (geometry == GEO_DISK ? 360 : earth.max_surface)   // xxx names
+
 //
 // typedefs
 //
@@ -44,8 +25,11 @@
 // variables
 //
 
-static bool moon_enabled;
-static bool sun_enabled;
+static double        theta;
+static bool          moon_enabled;
+static bool          sun_enabled;
+static int           geometry;
+static volatile bool tides_thread_init_complete;
 
 //
 // prototypes
@@ -53,7 +37,7 @@ static bool sun_enabled;
 
 static void init_earth_surface_xyz(void);
 static void *tides_thread(void *cx);
-static void set_earth_and_moon_position(double theta);
+static void set_earth_and_moon_position(void);
 
 //
 // inline functions
@@ -74,12 +58,6 @@ void tides_init(void)
     pthread_t tid;
     double gravity_force;
 
-    // xxx move or delete
-    // xxx wait for thread to start
-    for (int i = 0; i < MAX_EARTH_SURFACE; i++) {
-        earth.surface[i].r = EARTH_RADIUS;
-    }
-
     // determine the orbital radius of the earth and moon, relative to barycenter;
     // the centrifugal force of the Moon must equal that of the Earth.
     //   MOON_MASS * moon.em_orbit_w^2 * moon.x = EARTH_MASS * earth.em_orbit_w^2 * earth.x
@@ -94,25 +72,29 @@ void tides_init(void)
     earth.em_orbit_w = sqrt(gravity_force / (EARTH_MASS * earth.em_orbit_radius));
     assert(fabs(moon.em_orbit_w / earth.em_orbit_w - 1) < 1e-10);
 
-
-
     // xxx check
     earth.es_orbit_radius = (DIST_EARTH_SUN / (1 + EARTH_MASS / SUN_MASS));
+    sun.es_orbit_radius = DIST_EARTH_SUN - earth.es_orbit_radius;
     gravity_force = G * EARTH_MASS * SUN_MASS / (DIST_EARTH_SUN * DIST_EARTH_SUN);
     earth.es_orbit_w = sqrt(gravity_force / (EARTH_MASS * earth.es_orbit_radius));
-    printf("DIST_EARTH_SUN        = %0.6e m  %8.6f million miles\n", DIST_EARTH_SUN, METERS_TO_MILES(DIST_EARTH_SUN)/1000000);
-    printf("earth.es_orbit_radius = %0.6e m  %8.6f million miles\n", earth.es_orbit_radius, METERS_TO_MILES(earth.es_orbit_radius)/1000000);
-    printf("orbital period        = %f days\n", TWO_PI / earth.es_orbit_w / 86400);
+    sun.es_orbit_w = sqrt(gravity_force / (SUN_MASS * sun.es_orbit_radius));
+    assert(fabs(sun.es_orbit_w / earth.es_orbit_w - 1) < 1e-10);
 
-
-    // print values
-    printf("DIST_EARTH_MOON       = %0.6e m  %8.0f miles\n", DIST_EARTH_MOON, METERS_TO_MILES(DIST_EARTH_MOON));
     printf("EARTH_RADIUS          = %0.6e m  %8.0f miles\n", EARTH_RADIUS, METERS_TO_MILES(EARTH_RADIUS));
+    printf("\n");
+
+    printf("DIST_EARTH_MOON       = %0.6e m  %8.0f miles\n", DIST_EARTH_MOON, METERS_TO_MILES(DIST_EARTH_MOON));
     printf("earth.em_orbit_radius = %0.6e m  %8.0f miles\n", earth.em_orbit_radius, METERS_TO_MILES(earth.em_orbit_radius));
     printf("moon.em_orbit_radius  = %0.6e m  %8.0f miles\n", moon.em_orbit_radius, METERS_TO_MILES(moon.em_orbit_radius));
     printf("earth.em_orbit_w      = %0.6e\n", earth.em_orbit_w);
     printf("moon.em_orbit_w       = %0.6e\n", moon.em_orbit_w);
     printf("orbital period        = %f days\n", TWO_PI / moon.em_orbit_w / 86400);
+    printf("\n");
+
+    printf("DIST_EARTH_SUN        = %0.6e m  %8.6f million miles\n", DIST_EARTH_SUN, METERS_TO_MILES(DIST_EARTH_SUN)/1000000);
+    printf("earth.es_orbit_radius = %0.6e m  %8.6f million miles\n", earth.es_orbit_radius, METERS_TO_MILES(earth.es_orbit_radius)/1000000);
+    printf("sun.es_orbit_radius   = %0.6e m  %8.6f million miles\n", sun.es_orbit_radius, METERS_TO_MILES(sun.es_orbit_radius)/1000000);
+    printf("orbital period        = %f days\n", TWO_PI / earth.es_orbit_w / 86400);
     printf("\n");
 
     // initialize array of approximately evenly distributed points on the earth surface;
@@ -122,7 +104,10 @@ void tides_init(void)
     // create runtime thread
     pthread_create(&tid, NULL, tides_thread, NULL);
 
-    // xxx wait for thread to start before returning
+    // wait for thread to start before returning
+    while (!tides_thread_init_complete) {
+        usleep(10000);
+    }
 }
 
 static void init_earth_surface_xyz(void)
@@ -183,22 +168,21 @@ static void init_earth_surface_xyz(void)
 static void *tides_thread(void *cx)
 {
     int loops = 0;
-    double theta;
-    uint64_t start_us;
 
-    // set the initial earth and moon positions, at theta=0
-    theta = 0;
     for (int i = 0; i < MAX_EARTH_SURFACE; i++) {  // xxx rese tin 2places
         earth.surface[i].r = EARTH_RADIUS;
     }
-    set_earth_and_moon_position(theta);
+
+    set_earth_and_moon_position();
+
+    __sync_synchronize();
+    tides_thread_init_complete = true;
 
     while (true) {
         // xxx
-        start_us = microsec_timer();
         while (true) {
-            int i = random() % earth.max_surface;
-            int j = random() % earth.max_surface;
+            int i = random() % USE_MAX_SURFACE;
+            int j = random() % USE_MAX_SURFACE;
             if (i == j) continue;
 
             double delta_pe = 0;
@@ -223,35 +207,31 @@ static void *tides_thread(void *cx)
             }
 
             loops++;
-
-            // every 20000 loops (xxx how long) check:
-            // - is it time to advance theta
-            // - have ctrls changed, requiring a call to set_earth_and_moon_position
-            if ((loops % 20000) == 0) {
-                bool call = false;
-                if (ctrls.moon_motion_enabled && microsec_timer() > start_us + 10000) {
-                    theta += .1;
-                    call = true;
-                }
-                if (ctrls.reset_request) {  // xxx name
-                    ctrls.reset_request = false;
-                    theta = 0;
-                    call = true;
-                }
-                if (ctrls.moon_enabled != moon_enabled) {
-                    call = true;
-                }
-                if (ctrls.sun_enabled != sun_enabled) {
-                    call = true;
-                }
-                if (call) {
-                    set_earth_and_moon_position(theta);
-                }
-            }
-
             //if ((loops % 1000000) == 0) {
             //    printf("   loops = %9d\n", loops);
             //}
+
+            // every 10000 loops (xxx how long) check:
+            // - is it time to advance theta
+            // - have ctrls changed, requiring a call to set_earth_and_moon_position
+            if ((loops % 10000) == 0) {
+                if (ctrls.motion) {
+                    uint64_t now_us = microsec_timer();
+                    static uint64_t last_us;
+                    if (now_us > last_us + 10000) {
+                        ctrls.theta += .1;
+                        last_us = now_us;
+                    }
+                }
+ 
+                if (ctrls.theta != theta ||
+                    ctrls.moon_enabled != moon_enabled ||
+                    ctrls.sun_enabled != sun_enabled ||
+                    ctrls.geometry != geometry)
+                {
+                    set_earth_and_moon_position();
+                }
+            }
         }
     }
 
@@ -259,14 +239,16 @@ static void *tides_thread(void *cx)
 }
 
 // xxx better name
-static void set_earth_and_moon_position(double theta)
+static void set_earth_and_moon_position(void)
 {
     //uint64_t start = microsec_timer();
 
+    theta        = ctrls.theta;
     moon_enabled = ctrls.moon_enabled;
-    sun_enabled = ctrls.sun_enabled;
+    sun_enabled  = ctrls.sun_enabled;
+    geometry     = ctrls.geometry;
 
-    // set earth and moon position based on input arg 'theta', 
+    // set earth and moon position xxx comment
     // which is the orbit position in degrees
     earth.x = -cos(DEG_TO_RAD(theta)) * earth.em_orbit_radius;
     earth.y = -sin(DEG_TO_RAD(theta)) * earth.em_orbit_radius;
@@ -280,12 +262,12 @@ static void set_earth_and_moon_position(double theta)
     sun.z = 0;
 //xxx print
 
-    // compute accel vectors for all earth surface locations just computed
+    // compute accel vectors for all earth surface locations just computed  xxx comments
     // - g = earth gravity
     // - m = moon gravity
     // - c = centrifugal accel
     // - t = g + m + c
-    for (int i = 0; i < earth.max_surface; i++) {
+    for (int i = 0; i < USE_MAX_SURFACE; i++) {
         vector_t g, m, c, t;
         vector_t s, cs;
         double d;
@@ -366,47 +348,49 @@ static void set_earth_and_moon_position(double theta)
     //printf("set_earth_and_moon_position DURATION = %ld us\n", (microsec_timer()-start));
 }
 
+// -----------------  XXXXXXXXX0 ---------------------
+
+void tides_get_min_max(double *min, double *max, int *min_idx, int *max_idx)
+{
+    *min =  1e99;
+    *max = -1e99;
+
+    for (int i = 0; i < 360; i++) {  // xxx 360 ?
+        double r = earth.surface[i].r;
+        if (r < *min) {
+            *min = r;
+            if (min_idx) *min_idx = i;
+        }
+        if (r > *max) {
+            *max = r;
+            if (max_idx) *max_idx = i;
+        }
+    }
+}
+
 // -----------------  UNIT TEST  ---------------------
 
 #ifdef UNIT_TEST
 int main(int argc, char **argv)
 {
-    //ctrls.moon_enabled = true;
-    ctrls.sun_enabled = true;
-    ctrls.moon_enabled = true;
+    double min, max;
+    int min_idx, max_idx;
 
+    // xxx
+    ctrls.moon_enabled = true;
     tides_init();
 
     while (true) {
         sleep(1);
 
         printf("Results ...\n");
-
-        double min_r=1e99, max_r=-1e99;
-        int min_r_idx=-1, max_r_idx=-1;
-
-        //for (int i = 0; i < earth.max_surface; i++) 
-        for (int i = 0; i < 360; i++) 
-        {
-            double r = earth.surface[i].r;
-
-            if (i == 0 || i == 90 || i == 180 || i == 270) {
-                printf("   deg = %3d   height = %0.10f  height-earth_radius = %+0.6f\n", 
-                       i, r, r-EARTH_RADIUS);
-            }
-
-            if (r < min_r) {
-                min_r = r;
-                min_r_idx = i;
-            }
-            if (r > max_r) {
-                max_r = r;
-                max_r_idx = i;
-            }
-        }
+        tides_get_min_max(&min, &max, &min_idx, &max_idx);
         printf("   min = %f (idx=%d)   max = %f (idx=%d)   range = %f m  %f ft\n", 
-               min_r, min_r_idx, max_r, max_r_idx, max_r-min_r,
-               METERS_TO_FEET(max_r-min_r));
+               min, min_idx, max, max_idx, max-min, METERS_TO_FEET(max-min));
+        printf("   %3d = %+0.3f\n",   0, METERS_TO_FEET(earth.surface[0].r-EARTH_RADIUS));
+        printf("   %3d = %+0.3f\n",  90, METERS_TO_FEET(earth.surface[90].r-EARTH_RADIUS));
+        printf("   %3d = %+0.3f\n", 180, METERS_TO_FEET(earth.surface[180].r-EARTH_RADIUS));
+        printf("   %3d = %+0.3f\n", 270, METERS_TO_FEET(earth.surface[270].r-EARTH_RADIUS));
         printf("\n");
     }
 
