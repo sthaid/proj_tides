@@ -1,3 +1,5 @@
+#ifndef __TIDES_H__
+#define __TIDES_H__
 
 //
 // defines
@@ -8,15 +10,14 @@
 #define MOON_MASS          7.34767309e22    // mass of moon, kg
 #define DIST_EARTH_MOON    3.84400e8        // distance between earth and moon, meters
 #define SUN_MASS           1.989e30         // mass of sun, kg
-//#define DIST_EARTH_SUN     151.75e9         // distance between earth and sun, meters
-#define DIST_EARTH_SUN     149597870000.
+#define DIST_EARTH_SUN     149597870000.    // distance between earth and sun, meters
 #define G                  6.67408e-11      // gravitational constant
 #define EARTH_GRAVITY      9.81             // gravity of earth, m/s/s
 
 #define METERS_TO_MILES(m)          ((m) * 0.000621371)
 #define METERS_TO_NAUTICAL_MILES(m) ((m) * 0.000539957)
 #define METERS_TO_FEET(m)           ((m) * 3.28084)
-#define TWO_PI                      (2 * M_PI)  // xxx is this used enough
+#define TWO_PI                      (2 * M_PI)
 #define DEG_TO_RAD(d)               ((d) * (M_PI/180))
 #define RAD_TO_DEG(r)               ((r) * (180/M_PI))
 
@@ -27,12 +28,17 @@
 // variables
 //
 
+// notes:
+// - unless otherwise noted x,y,z are relative to the earth-moon barycenter
+// - orbits are circular, and in the x,y plane
+// - orbit_radius values are the distance to the barycenter of the orbit
+
 struct {
     double x;
     double y;
     double z;
-    double es_orbit_radius;  // xxx add code
-    double es_orbit_w;  // xxx add code
+    double es_orbit_radius;
+    double es_orbit_w;
 } sun;
 
 struct {
@@ -43,7 +49,7 @@ struct {
     double em_orbit_w;
 } moon;
 
-#define MAX_EARTH_SURFACE  50000  // xxx what is needed
+#define MAX_EARTH_SURFACE  50000  // actual max needed is 41258
 struct {
     double x;
     double y;
@@ -53,24 +59,24 @@ struct {
     double es_orbit_radius;
     double es_orbit_w;
     struct {
-        double x;  // xxx comments
+        double x;    // x,y,z are relative to the center of the earth
         double y;
         double z;
-        double g;
-        double r;
-        vector_t v;
+        double g;    // the total accel at this location on the earth's surface
+        double r;    // the distance to earth center at this location, including the tide level
+        vector_t v;  // sum of all accels at this location, excluding earth's gravity
     } surface[MAX_EARTH_SURFACE];
     int max_surface;
 } earth;
 
 struct ctrls_s {
-    volatile double theta;
-    volatile bool   moon_enabled;
-    volatile bool   sun_enabled;
+    volatile double theta;         // angle position of the moon, relative to x,y origin
+    volatile bool   moon_enabled;  // when true, the effect of the moon is included in the simulation
+    volatile bool   sun_enabled;   // when true, the effect of the sun is included in the simulation
 
-    volatile bool   motion;
-    volatile bool   vectors;
-    volatile int    geometry;
+    volatile bool   motion;        // moon motion is simulatied
+    volatile bool   vectors;       // display acceleration vectors (excluding earth gravity) at equator
+    volatile int    geometry;      // select simulating the earth as a disk or sphere
 } ctrls;
 
 //
@@ -79,3 +85,5 @@ struct ctrls_s {
 
 void tides_init(void);
 void tides_get_min_max(double *min, double *max, int *min_idx, int *max_idx);
+
+#endif
