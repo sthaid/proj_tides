@@ -382,7 +382,7 @@ static void set_earth_moon_position_and_surface_values(void)
     //printf("set_earth_moon_position_and_surface_values DURATION = %ld us\n", (microsec_timer()-start));
 }
 
-// -----------------  XXXXXXXXX0 ---------------------
+// -----------------  xxxxxxxxxxx---------------------
 
 // this routine returns the min and max earth surface radius along the equator
 void tides_get_min_max(double *min, double *max, int *min_idx, int *max_idx)

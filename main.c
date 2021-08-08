@@ -4,26 +4,38 @@
 #include <math.h>
 #include <assert.h>
 
-//#include <util_logging.h>  // xxx maybe just printf here
 #include <util_sdl.h>
 #include <vectors.h>
 #include <tides.h>
 
+//
+// defines
+//
+
 #define REQUESTE_WIN_WIDTH  1500
 #define REQUESTE_WIN_HEIGHT 900
 
-static struct ctrls_s default_ctrls = {
+//
+// variables
+//
+
+static const struct ctrls_s default_ctrls = {
     .theta         = 0,
-    .motion        = false,
-    .vectors       = true,
     .moon_enabled  = true,
     .sun_enabled   = false,
+    .motion        = false,
+    .vectors       = true,
+    .geometry      = GEO_DISK,
 };
+
+//
+// prototypes
+//
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 static double sanitize_angle(double x);
 
-// --------------------------------------------------------------------------------
+// -----------------  MAIN  -------------------------------------------------------
 
 int main(int argc, char **argv)
 {
@@ -60,11 +72,16 @@ int main(int argc, char **argv)
     return 0;
 }
 
-// --------------------------------------------------------------------------------
+// -----------------  PANE HNDLR  -------------------------------------------------
+
+// this routine has 4 secions, which are invoked:
+// - INITIALIZE: once
+// - RENDER:     periodically to draw the display
+// - EVENT:      when an event is available
+// - TERMINATE:  when done
 
 static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
-    static rect_t  * pane;
     static double    esf;
     static double    msf;
     static double    ssf;
@@ -85,17 +102,19 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // ----------------------------
 
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
-        //printf("PANE x,y,w,h  %d %d %d %d\n", pane->x, pane->y, pane->w, pane->h);
+        printf("PANE x,y,w,h  %d %d %d %d\n",
+               pane_cx->pane.x, pane_cx->pane.y, pane_cx->pane.w, pane_cx->pane.h);
 
-        pane = &pane_cx->pane;
-        esf = 100 / 6.4e6;
-        earth_texture = sdl_create_filled_circle_texture(EARTH_RADIUS * esf, WHITE);
-
-        //msf = 500 / 4.0e8;
-        msf = 350 / 3.797e8;
-        moon_texture = sdl_create_filled_circle_texture(10, WHITE);
-
+        // these scale factors are used to convert from meters to pixels for
+        // the earth, moon, and sun 
+        esf = 100 / EARTH_RADIUS;
+        msf = 350 / moon.em_orbit_radius;
         ssf = 610 / DIST_EARTH_SUN;
+
+        // init textures, containing circles representing the earth, moon, and sun;
+        // these textures are used in the RENDER section below
+        earth_texture = sdl_create_filled_circle_texture(EARTH_RADIUS * esf, WHITE);
+        moon_texture = sdl_create_filled_circle_texture(10, WHITE);
         sun_texture = sdl_create_filled_circle_texture(200, YELLOW);
 
         return PANE_HANDLER_RET_NO_ACTION;
@@ -106,169 +125,144 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        //rect_t loc = {pane->w/2-100, pane->h/2-100, 200, 200};
-        //sdl_render_rect(pane, &loc, 1, WHITE);
+        rect_t *pane  = &pane_cx->pane;
+        int     x_ctr = pane->h/2;
+        int     y_ctr = pane->h/2;
+        int     w     = pane->h;
+        int     h     = pane->h;
+        int     moon_texture_width, moon_texture_height;
+        int     earth_texture_width, earth_texture_height;
+        int     sun_texture_width, sun_texture_height;
+        double  min, max;
 
-        int x_ctr = pane->h/2;
-        int y_ctr = pane->h/2;
-        int w     = pane->h;
-        int h     = pane->h;
+        // get the min and max radius along the equator, 
+        // where this radius is the EARTH_RADIUS + tide height
+        tides_get_min_max(&min, &max, NULL, NULL);
 
-int earth_texture_width, earth_texture_height;
-int moon_texture_width, moon_texture_height;
-int sun_texture_width, sun_texture_height;
+        // draw X and Y axis; the origin is the earth-moon barycenter
         sdl_render_line(pane, 0, y_ctr, w-1, y_ctr, WHITE);
         sdl_render_line(pane, x_ctr, 0, x_ctr, h-1, WHITE);
 
-        sdl_render_line(pane, w-1, 0, w-1, h-1, WHITE);
-
+        // draw the earth
         sdl_query_texture(earth_texture, &earth_texture_width, &earth_texture_height);
         sdl_render_texture(pane, 
-                           x_ctr - earth_texture_width/2 + esf * earth.x,
-                           y_ctr - earth_texture_height/2 - esf * earth.y,
+                           (x_ctr - earth_texture_width/2)  + esf * earth.x,
+                           (y_ctr - earth_texture_height/2) - esf * earth.y,
                            earth_texture);
 
+        // draw a point at the earth-moon barycenter (which is same as X,Y origin)
         sdl_render_point(pane, x_ctr, y_ctr, BLACK, 3);
 
-#if 0
-        sdl_render_point(pane, 
-                         x_ctr + esf * earth.x,
-                         y_ctr - esf * earth.y,
-                         GREEN, 3);
-#endif
-
+        // if moon simulation is enabled then draw the moon
         if (ctrls.moon_enabled) {
             sdl_query_texture(moon_texture, &moon_texture_width, &moon_texture_height);
             sdl_render_texture(pane, 
-                            x_ctr - moon_texture_width/2 + msf * moon.x,
-                            y_ctr - moon_texture_height/2 - msf * moon.y,
+                            (x_ctr - moon_texture_width/2)  + msf * moon.x,
+                            (y_ctr - moon_texture_height/2) - msf * moon.y,
                             moon_texture);
         }
 
+        // if sun simulation is enabled then draw the sun
         if (ctrls.sun_enabled) {
             sdl_query_texture(sun_texture, &sun_texture_width, &sun_texture_height);
             sdl_render_texture(pane, 
-                            x_ctr - sun_texture_width/2 + ssf * sun.x,
-                            y_ctr - sun_texture_height/2 - ssf * sun.y,
-                            //x_ctr - sun_texture_width/2,
-                            //y_ctr - sun_texture_height/2 + 600,
+                            (x_ctr - sun_texture_width/2)  + ssf * sun.x,
+                            (y_ctr - sun_texture_height/2) - ssf * sun.y,
                             sun_texture);
         }
 
-        double min, max;
-        tides_get_min_max(&min, &max, NULL, NULL);
-
-        // xxx fill in
+        // draw a blue area representing the height of the tides at the equator
         int count=0;
         point_t points[361];
-        //double k1 = 2e6;
-        //double k2 = min-EARTH_RADIUS;
         for (int i = 0; i < 360; i++) {
-            //points[count].x = x_ctr + nearbyint(((EARTH_RADIUS + k1*(earth.surface[i].r-EARTH_RADIUS+k2)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
-            //points[count].y = y_ctr - nearbyint(((EARTH_RADIUS + k1*(earth.surface[i].r-EARTH_RADIUS+k2)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
             double r = EARTH_RADIUS + 400000 + (earth.surface[i].r - min) * 4000000;
-            points[count].x = x_ctr + esf * (r * cos(DEG_TO_RAD(i)) + earth.x);
-            points[count].y = y_ctr - esf * (r * sin(DEG_TO_RAD(i)) + earth.y);
+            points[count].x = x_ctr + nearbyint(esf * (r * cos(DEG_TO_RAD(i)) + earth.x));
+            points[count].y = y_ctr - nearbyint(esf * (r * sin(DEG_TO_RAD(i)) + earth.y));
             count++;
         }
         points[360] = points[0];
         count++;
         sdl_render_lines(pane, points, count, LIGHT_BLUE);
 
+        // if vectors are enabled then draw the vectors at 10 degree increments;
+        // these vectors represent the sum of the accelerations:
+        //  - moon gravity
+        //  - earth's centrifigul force around the earth-moon barycenter
+        //  - sun gravity
+        //  - earth's centrifigul force around the earth-sun barycenter
+        // the acceleration of earth gravity is not included in the earth.surface[i].v
+        // because it's value is comparitively enourmous
         if (ctrls.vectors) {
             double x1, x2,y1, y2;
             for (int i = 0; i < 360; i += 10) {
-                //x1 = x_ctr + (((EARTH_RADIUS + k1*(earth.surface[i].r-EARTH_RADIUS+k2)) * cos(DEG_TO_RAD(i)) + earth.x) * esf);
-                //y1 = y_ctr - (((EARTH_RADIUS + k1*(earth.surface[i].r-EARTH_RADIUS+k2)) * sin(DEG_TO_RAD(i)) + earth.y) * esf);
                 double r = EARTH_RADIUS + 400000 + (earth.surface[i].r - min) * 4000000;
-                x1 = x_ctr + esf * (r * cos(DEG_TO_RAD(i)) + earth.x);
-                y1 = y_ctr - esf * (r * sin(DEG_TO_RAD(i)) + earth.y);
+                x1 = x_ctr + nearbyint(esf * (r * cos(DEG_TO_RAD(i)) + earth.x));
+                y1 = y_ctr - nearbyint(esf * (r * sin(DEG_TO_RAD(i)) + earth.y));
 
                 vector_t *v = &earth.surface[i].v;
-                x2 = x1 + (v->a * 100000000.);
-                y2 = y1 - (v->b * 100000000.);
+                x2 = x1 + nearbyint(v->a * 100000000.);
+                y2 = y1 - nearbyint(v->b * 100000000.);
 
-                // xxx nearbyint
                 sdl_render_line(pane, x1,y1, x2,y2, RED);
                 sdl_render_point(pane, x2,y2, RED, 2);
             }
         }
 
+        // draw vertical line marking border between the display and controls areas
+        sdl_render_line(pane, w-1, 0, w-1, h-1, WHITE);
 
-        int xxx = w + 10;
-
+        // register for events
+        int x_ctrls = w + 10;
         sdl_render_text_and_register_event(
-                pane, xxx+COL2X(0,FONTSZ), ROW2Y(0,FONTSZ), FONTSZ, 
+                pane, x_ctrls+COL2X(0,FONTSZ), ROW2Y(0,FONTSZ), FONTSZ, 
                 "RESET", 
                 LIGHT_BLUE, BLACK,
                 SDL_EVENT_RESET, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-
         sdl_render_text_and_register_event(
-                pane, xxx+COL2X(10,FONTSZ), ROW2Y(0,FONTSZ), FONTSZ, 
+                pane, x_ctrls+COL2X(10,FONTSZ), ROW2Y(0,FONTSZ), FONTSZ, 
                 "MOTION",
                 LIGHT_BLUE, BLACK,
                 SDL_EVENT_MOTION, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-
         sdl_render_text_and_register_event(
-                pane, xxx+COL2X(0,FONTSZ), ROW2Y(2,FONTSZ), FONTSZ, 
+                pane, x_ctrls+COL2X(0,FONTSZ), ROW2Y(2,FONTSZ), FONTSZ, 
                 "MOON",
                 LIGHT_BLUE, BLACK,
                 SDL_EVENT_MOON, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-
         sdl_render_text_and_register_event(
-                pane, xxx+COL2X(10,FONTSZ), ROW2Y(2,FONTSZ), FONTSZ, 
+                pane, x_ctrls+COL2X(10,FONTSZ), ROW2Y(2,FONTSZ), FONTSZ, 
                 "SUN",
                 LIGHT_BLUE, BLACK,
                 SDL_EVENT_SUN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-
         sdl_render_text_and_register_event(
-                pane, xxx+COL2X(0,FONTSZ), ROW2Y(4,FONTSZ), FONTSZ, 
+                pane, x_ctrls+COL2X(0,FONTSZ), ROW2Y(4,FONTSZ), FONTSZ, 
                 "VECTORS",
                 LIGHT_BLUE, BLACK,
                 SDL_EVENT_VECTORS, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-
         sdl_render_text_and_register_event(
-                pane, xxx+COL2X(10,FONTSZ), ROW2Y(4,FONTSZ), FONTSZ, 
+                pane, x_ctrls+COL2X(10,FONTSZ), ROW2Y(4,FONTSZ), FONTSZ, 
                 "GEOMETRY",
                 LIGHT_BLUE, BLACK,
                 SDL_EVENT_GEOMETRY, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
-        sdl_render_printf(pane, xxx, ROW2Y(8,FONTSZ), FONTSZ, WHITE, BLACK,
-                          "GEO   = %s", 
+        // display status
+        sdl_render_printf(pane, x_ctrls, ROW2Y(8,FONTSZ), FONTSZ, WHITE, BLACK,
+                          "GEO   : %s", 
                           ctrls.geometry == GEO_DISK ? "DISK" : "SPHERE");
-        sdl_render_printf(pane, xxx, ROW2Y(9,FONTSZ), FONTSZ, WHITE, BLACK,
-                          "MOON  = %s", 
+        sdl_render_printf(pane, x_ctrls, ROW2Y(9,FONTSZ), FONTSZ, WHITE, BLACK,
+                          "MOON  : %s", 
                           ctrls.moon_enabled ? "ON" : "OFF");
-        sdl_render_printf(pane, xxx, ROW2Y(10,FONTSZ), FONTSZ, WHITE, BLACK,
-                          "SUN   = %s", 
+        sdl_render_printf(pane, x_ctrls, ROW2Y(10,FONTSZ), FONTSZ, WHITE, BLACK,
+                          "SUN   : %s", 
                           ctrls.sun_enabled ? "ON" : "OFF");
-        sdl_render_printf(pane, xxx, ROW2Y(11,FONTSZ), FONTSZ, WHITE, BLACK,
-                          "THETA = %0.1f", 
+        sdl_render_printf(pane, x_ctrls, ROW2Y(11,FONTSZ), FONTSZ, WHITE, BLACK,
+                          "THETA : %0.1f", 
                           ctrls.theta);
-        sdl_render_printf(pane, xxx, ROW2Y(12,FONTSZ), FONTSZ, WHITE, BLACK,
-                          "RANGE = %0.3f ft", 
+        sdl_render_printf(pane, x_ctrls, ROW2Y(12,FONTSZ), FONTSZ, WHITE, BLACK,
+                          "RANGE : %0.3f ft", 
                           METERS_TO_FEET(max-min));
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
-
-#if 0
-RESET     MOTION
-
-MOON      SUN
-
-0123456789 12345
-VECTORS   GEOMETRY
-
--------------
-
-GEO   = DISK
-THETA = 90 deg
-RANGE = 0.123 m  2.123 ft
-
-keys
-r m s v g + - M
-#endif
 
     // -----------------------
     // -------- EVENT --------
@@ -277,9 +271,8 @@ r m s v g + - M
     if (request == PANE_HANDLER_REQ_EVENT) {
         int rc = PANE_HANDLER_RET_NO_ACTION;
 
-        // first handle events common to all displays
         switch (event->event_id) {
-        case 'q':  // quit
+        case 'q':
             rc = PANE_HANDLER_RET_PANE_TERMINATE;
             break;
         case SDL_EVENT_RESET: case 'r':
@@ -293,6 +286,9 @@ r m s v g + - M
             break;
         case SDL_EVENT_MOON: case 'm':
             ctrls.moon_enabled = !ctrls.moon_enabled;
+            if (ctrls.moon_enabled == false) {
+                ctrls.motion = false;
+            }
             break;
         case SDL_EVENT_SUN: case 's':
             ctrls.sun_enabled = !ctrls.sun_enabled;
@@ -301,15 +297,15 @@ r m s v g + - M
             ctrls.geometry = (ctrls.geometry == GEO_DISK ? GEO_SPHERE : GEO_DISK);
             break;
         case '+': case '=':
-            ctrls.theta = sanitize_angle(nearbyint(ctrls.theta+1));
+            if (ctrls.moon_enabled) {
+                ctrls.theta = sanitize_angle(nearbyint(ctrls.theta+1));
+            }
             break;
         case '-':
-            ctrls.theta = sanitize_angle(nearbyint(ctrls.theta-1));
+            if (ctrls.moon_enabled) {
+                ctrls.theta = sanitize_angle(nearbyint(ctrls.theta-1));
+            }
             break;
-        }
-
-        if (ctrls.moon_enabled == false) {
-            ctrls.motion = false;
         }
 
         return rc;
