@@ -169,7 +169,6 @@ static void init_earth_surface_xyz(void)
 
 // -----------------  RUNTIME  -----------------------
 
-// xxx recheck , comments, and descritpiton in notes.txt
 static void *tides_thread(void *cx)
 {
     int loops = 0;
@@ -184,26 +183,44 @@ static void *tides_thread(void *cx)
 
     // loop forever
     while (true) {
+        double delta_pe, g_surface, r, dr_i, dr_j;
+
+        // pick random locations (i and j) on the earth surface
+        // where MAX_SURFACE depends on whether the earth is being simulated as a disk or sphere:
+        // - for GEO_DISK, MAX_SURFACE equals 360; the first 360 elements of earth.surface[] are on the equator
+        // - for GEO_SPHERE, MAX_SURFACE equals the number of 60 NM x 60 NM squares that make up 
+        //   the surface of the earth; the first 360 elements of earth.surface[] are along the equator 
+        //   (same as for GEO_DISK), the following values are at latitudes from 1 to 90, and -1 to -90 
         int i = random() % MAX_SURFACE;
         int j = random() % MAX_SURFACE;
         if (i == j) continue;
 
-        double delta_pe = 0;
-        double m, g_surface, r;
+        // Calculate the change in radius at locations i and j that would occur if an equal amount
+        // of water is moved to or from that location. When the earth.surface[].r is larger then
+        // the change in radius is less because the water is spread over a larger area.
+        // 
+        // The .001 value is in units of meters (equals 1 mm). This value should be small 
+        // relative to the expected tidal range, but not too small because making it too small
+        // lengthens the number of loops needed to arrive at a result.
+        dr_i = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].r);
+        dr_j = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].r);
 
-        double dr_i = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].r);
-        double dr_j = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].r);
+        // Compute the change in potential energy if 1 unit of water mass is moved
+        // from location j to location i. Since we ae just trying to determine if the
+        // potential energy has decreased or not, the delta_pe value does not have units.
+        delta_pe = 0;
 
-        m         = 1;
         g_surface = earth.surface[i].g;
         r         = earth.surface[i].r + dr_i/2;
-        delta_pe += m * g_surface * square(r);
+        delta_pe += g_surface * square(r);
 
-        m         = 1;
         g_surface = earth.surface[j].g;
         r         = earth.surface[j].r - dr_j/2;
-        delta_pe -= m * g_surface * square(r);
+        delta_pe -= g_surface * square(r);
 
+        // if the change in potential energy is negative, that means moving the
+        // water from location j to i causes a decrease in potential energy;
+        // so adjust the earth.surface[i/j].r values to reflect the water being moved
         if (delta_pe < 0) {
             earth.surface[i].r += dr_i;
             earth.surface[j].r -= dr_j;
@@ -214,9 +231,16 @@ static void *tides_thread(void *cx)
         //if ((loops % 1000000) == 0) printf("   loops = %9d\n", loops);
 
         // every 10000 loops:
-        // - when mtion is enabled, increment theat by 0.1 degrees every 10 ms
-        // - if ctrls have changed then call set_earth_moon_position
+        // - when motion is enabled, increment theta by 0.1 degrees every 10 ms
+        // - if ctrls have changed then call set_earth_moon_position_and_surface_values
         if ((loops % 10000) == 0) {
+            // measure the duration of the 10000 loops
+            //static uint64_t last_us, now_us;
+            //now_us = microsec_timer();
+            //printf("duration for 10000 loops = %ld us\n", now_us-last_us);
+            //last_us = now_us;
+            
+            // when motion is enabled, increment theta by 0.1 degrees every 10 ms
             if (ctrls.motion) {
                 uint64_t now_us = microsec_timer();
                 static uint64_t last_us;
@@ -226,6 +250,7 @@ static void *tides_thread(void *cx)
                 }
             }
 
+            // if ctrls have changed then call set_earth_moon_position_and_surface_values
             if (ctrls.theta != theta ||
                 ctrls.moon_enabled != moon_enabled ||
                 ctrls.sun_enabled != sun_enabled ||
@@ -382,7 +407,7 @@ static void set_earth_moon_position_and_surface_values(void)
     //printf("set_earth_moon_position_and_surface_values DURATION = %ld us\n", (microsec_timer()-start));
 }
 
-// -----------------  xxxxxxxxxxx---------------------
+// -----------------  UTILS  -------------------------
 
 // this routine returns the min and max earth surface radius along the equator
 void tides_get_min_max(double *min, double *max, int *min_idx, int *max_idx)
