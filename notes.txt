@@ -1,3 +1,101 @@
+=====================
+INTRODUCTION
+=====================
+
+I've known for quite some time that the tides are caused by the 
+moon's gravity, and that their is a tidal bulge on both the side of the
+earth facing the moon, and on the opposite side of the earth too.
+
+It seems that the Moon's gravity should be pulling the water towards the Moon.
+This would account for the tidal bulge on the side of the Earth facing the Moon.
+But, why is there also a tidal bulge on the opposite side of the Earth.
+
+Some reference web sites:
+- https://noc.ac.uk/files/documents/business/Double-Bulge-Explanation.pdf
+- https://oceanservice.noaa.gov/education/tutorial_tides/tides03_gravity.html
+
+=====================
+CENTRIFUGAL FORCE
+=====================
+
+The answer has to do with Centrifugal Force. 
+
+We think of the Moon orbiting a stationary Earth. However the Moon and the
+Earth are both in orbital motion around the center of mass, or Barycenter.
+The Earth-Moon Barycenter is located at a point that lies on a line between
+the center of the Earth and Moon. And since the Earth is much more massive than 
+the Moon, the Barycenter is located close to the center of the Earth.
+
+In this diagram:
+- B: is the center of mass, or Barycenter
+- *: is the cener of the Earth
+- 1: is a point on the surface of the earth opposite the Moon
+- 2: is a point on the surface of the earth facing the Moon
+- C: xxx
+- G, G1, G2:  xxx
+
+              xxxxxxxxxxx
+             x           x
+            x    Earth    x
+           x               x
+   --> G1  1       *    B  2  ----> G2                                  Moon
+           x     ---> G    x
+            x             x
+             x           x
+              xxxxxxxxxxx
+
+                 <--- C
+
+The center of earth '*' is moving in a 27 day circular orbit around the
+barycenter 'B'. This causes a centrifugal force 'C', that is directed away
+from the Moon, and has the same magnitude and direction at all locations on 
+the surface and within the Earth. Refer to the first referenced web site.
+
+Because the Earth and Moon are in orbit, the Centrifugal Force 'C' is equal
+in magnitude and opposite in direction to the Gravitational Force 'G' at the
+Earth's center.
+
+Since '2' is closer to the Moon than Earth center '*', the gravitational force
+G2 is larger than G. Adding vectors G2 and C gives a small force directoed towards
+the moon at point '2'.
+
+Since '1' is further from the Moon than Earth center '*', the gravitational force
+G1 is smaller then G. Adding vectors G1 and C gives a small force directed away
+from the moon at point '1'. This accounts for the tidal bulge on the side of the 
+Earth opposite from the Moon.
+
+=====================
+SIMULATION
+=====================
+
+This program attempts to simulate the tidal bulges by minimizing gravitational
+potential energy. This is done by repeatedly choosing a pair of random locations on the Earth's
+surface and checking if moving a small quantity of water from one location to the other
+will reduce potential energy. If so, the height of the water is adjusted to simulate the
+movement of the water.
+
+The program produces reasonable results; however, I would not be surprised if there
+are significant errors.
+
+There are many simplifying assumptions, including:
+- earth, moon, and sun orbits are in the x,y plane
+- depending on whether the program is simulating a spherical or disk earth, the
+  earth is either a sphere of water, or a confined disk of water
+- orbits are circular
+- the calculation of potential energy is reasonably accurate, see following section
+
+
+
+- if the program is simulating a 
+
+
+
+probably errors
+
+
+-----------------------------
+
+
 main.c
 
 tides.c
