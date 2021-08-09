@@ -2,13 +2,14 @@
 INTRODUCTION
 ==========================================
 
-I've known for quite some time that the tides are caused by the 
-Moon's gravity, and that their is a tidal bulge on both the side of the
-Earth facing the Moon, and also on the opposite side of the Earth.
+The Earth's tides are caused by the Moon's gravity. 
+
+There is a tidal bulge on both the side of the Earth facing the Moon, and 
+also on the opposite side of the Earth facing away from the Moon.
 
 It seems that the Moon's gravity should be pulling the water towards the Moon.
 This would account for the tidal bulge on the side of the Earth facing the Moon.
-But, why is there also a tidal bulge on the opposite side of the Earth.
+But, why is there also a tidal bulge on the opposite side of the Earth?
 
 References:
 - https://noc.ac.uk/files/documents/business/Double-Bulge-Explanation.pdf
@@ -69,7 +70,7 @@ Earth opposite from the Moon.
 SIMULATION
 ==========================================
 
-This program simulates the tidal bulges by minimizing gravitational potential energy. 
+The tides program simulates the tidal bulges by minimizing gravitational potential energy. 
 This is done by repeatedly choosing a pair of random locations on the Earth's
 surface and checking if moving a small quantity of water from one location to the other
 will reduce potential energy. If so, the height of the water at the two locations 
