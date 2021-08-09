@@ -202,6 +202,7 @@ static void *tides_thread(void *cx)
         // The .001 value is in units of meters (equals 1 mm). This value should be small 
         // relative to the expected tidal range, but not too small because making it too small
         // lengthens the number of loops needed to arrive at a result.
+// xxx match names, call this delta_r_i
         dr_i = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].r);
         dr_j = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].r);
 
@@ -210,6 +211,7 @@ static void *tides_thread(void *cx)
         // potential energy has decreased or not, the delta_pe value does not have units.
         delta_pe = 0;
 
+// xxx simpify
         g_surface = earth.surface[i].g;
         r         = earth.surface[i].r + dr_i/2;
         delta_pe += g_surface * square(r);

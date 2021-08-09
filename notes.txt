@@ -1,6 +1,6 @@
-=====================
+==========================================
 INTRODUCTION
-=====================
+==========================================
 
 I've known for quite some time that the tides are caused by the 
 moon's gravity, and that their is a tidal bulge on both the side of the
@@ -14,9 +14,9 @@ Some reference web sites:
 - https://noc.ac.uk/files/documents/business/Double-Bulge-Explanation.pdf
 - https://oceanservice.noaa.gov/education/tutorial_tides/tides03_gravity.html
 
-=====================
+==========================================
 CENTRIFUGAL FORCE
-=====================
+==========================================
 
 The answer has to do with Centrifugal Force. 
 
@@ -64,11 +64,11 @@ G1 is smaller then G. Adding vectors G1 and C gives a small force directed away
 from the moon at point '1'. This accounts for the tidal bulge on the side of the 
 Earth opposite from the Moon.
 
-=====================
+==========================================
 SIMULATION
-=====================
+==========================================
 
-This program attempts to simulate the tidal bulges by minimizing gravitational
+This program simulates the tidal bulges by minimizing gravitational
 potential energy. This is done by repeatedly choosing a pair of random locations on the Earth's
 surface and checking if moving a small quantity of water from one location to the other
 will reduce potential energy. If so, the height of the water is adjusted to simulate the
@@ -79,18 +79,126 @@ are significant errors.
 
 There are many simplifying assumptions, including:
 - earth, moon, and sun orbits are in the x,y plane
+- the earth is not rotating on it's axis
 - depending on whether the program is simulating a spherical or disk earth, the
   earth is either a sphere of water, or a confined disk of water
 - orbits are circular
-- the calculation of potential energy is reasonably accurate, see following section
+- the calculation of potential energy is done correctly
+
+==========================================
+CALCULATING POTENTIAL ENERGY, CONSIDERING
+- SPHERICAL EARTH
+- ONLY EARTH'S GRAVITY
+==========================================
+
+First let's find the equation for potential energy of a mass-of-water 'm', at 
+distance 'R' from the Earth's center. Just the gravitational force of the Earth
+will be considered (for now). This potential energy is the amount of energy 
+needed to raise the water from the center of the earth for distance 'R'.
+
+Definitions of values used in the following equations:
+- G:  Gravitational Constant
+- Me: Mass of Earth
+- Re: Radius of spherical Earth (without tidal fluctuations)
+- g:: gravitational accel at the Earth's surface (9.81 m/s/s)
+- R:  distance from earth's center to the mass-of-water
+- E:  potential energy of the the mass-of-water
+- m:  mass of the water
+
+The acceleration at the earth surfaceis:
+
+       G * Me
+   g = ------
+        Re^2
+
+Imagine a tunnel through the center of the earth, the accel of gravity
+at distance r from earth center is:
+
+                       r^3
+           G * ( Me * ---- )
+                      Re^3
+   g(r) = -------------------
+                r^2
+ 
+          G * Me    r
+   g(r) = ------ * ----
+           Re^2     Re
+
+               r
+   g(r) = g * ----
+               Re
+
+The amount of Energy to lift the mass-of-water from earth'c center for distance 'R':
+
+          R
+   E = Integral  F(r) * dr
+          0
+
+          R
+   E = Integral  (m * g(r)) * dr
+          0
+
+          R                r
+   E = Integral  (m * g * ----) * dr
+          0                Re
+
+        1     m * g
+   E = --- * ------- * R^2
+        2      Re
+
+We also need to consider the height of the mass of water.
+The equation for 'A' is because when the mass-of-water is further away
+from earth's center it needs to be spread over a larger area.
+   Where:
+   - m:       mass of the water
+   - A:       the earth surface area over which it is spread
+   - delta_R: the height of the mass-of-water
+   - p:       density of water
+
+   m = A * delta_R * p
+
+            R^2
+   A = k * ----
+           Re^2
+
+             R^2
+   m = (k * ----) * delta_R * p
+            Re^2
+
+               1
+   delta_R ~ ------
+              R^2
+
+   The simulation uses a delta_R that is approximately .001 m; 
+   using this equation:
+
+             (.0001 * Re^2)
+   delta_R = --------------
+                 R^2
 
 
 
-- if the program is simulating a 
 
 
 
-probably errors
+
+
+xxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxx
+
+Values at a particular location on the Earth's surface
+- gs: magnitude of the total acceleration vector at radius Re; 
+      where the total acceleration vector is the sum of the 
+      following acceleration vectors:
+      - earth gravity
+      - moon gravity
+      - sun gravity
+      - centrifugal accel due to circular motion about earth-moon barycenter
+      - centrifugal accel due to circular motion about earth-sun barycenter
+
+and with 
+
 
 
 -----------------------------
@@ -100,15 +208,9 @@ main.c
 
 tides.c
 
-graphics.c
-
 util_sdl.c
 
 
-common.h
-
-
-// XXX
 
 // - graphics
 //   - motion on/off
@@ -154,37 +256,8 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
 #if 0
-The acceleration at the earth surface (due to earth gravity) is
-               G * Me
-   g_surface = ------
-                Re^2
 
-Imagine a tunnel through the center of the earth, the accel of gravity
-at distance R from earth center is
-       G * (Me * R^3 / Re^3)
-   g = --------------------- = (G * Me / Re^3) * R
-             R^2
 
-       g_surface
-   g = --------- * R
-          Re
-
-The amount of Energy to lift an object of mass m from the earth center to R is:
-        R
-   E = Integral  F * dR
-        0
-
-        R
-   E = Integral  (m * g) * dR
-        0
-
-        R             g_surface
-   E = Integral  (m * ---------- * R) * dR
-        0                Re
-
-                  g_surface
-   E = 1/2 * m  * --------- * R^2
-                     Re
 #endif
 
 
