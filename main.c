@@ -150,6 +150,23 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
                            (y_ctr - earth_texture_height/2) - esf * earth.y,
                            earth_texture);
 
+        // draw purple marks on the earth, to help visualize how all points
+        // on the earth are moving circles of equal size
+        for (int i = 0; i < 360; i += 90) {
+            sdl_render_point(pane, 
+                            x_ctr + esf * (earth.x + earth.surface[i].x),
+                            y_ctr - esf * (earth.y + earth.surface[i].y),
+                            PURPLE, 3);
+        }
+        sdl_render_line(pane,
+                        x_ctr - 10 + esf * earth.x, y_ctr - esf * earth.y,
+                        x_ctr + 10 + esf * earth.x, y_ctr - esf * earth.y,
+                        PURPLE);
+        sdl_render_line(pane,
+                        x_ctr + esf * earth.x, y_ctr - 10 - esf * earth.y,
+                        x_ctr + esf * earth.x, y_ctr + 10 - esf * earth.y,
+                        PURPLE);
+
         // draw a point at the earth-moon barycenter (which is same as X,Y origin)
         sdl_render_point(pane, x_ctr, y_ctr, BLACK, 3);
 
