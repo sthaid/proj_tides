@@ -175,7 +175,7 @@ static void *tides_thread(void *cx)
 
     // initailze
     for (int i = 0; i < MAX_EARTH_SURFACE; i++) {
-        earth.surface[i].r = EARTH_RADIUS;
+        earth.surface[i].R = EARTH_RADIUS;
     }
     set_earth_moon_position_and_surface_values();
     __sync_synchronize();
@@ -183,7 +183,7 @@ static void *tides_thread(void *cx)
 
     // loop forever
     while (true) {
-        double delta_pe, g_surface, r, dr_i, dr_j;
+        double delta_E, gt, R, delta_R_i, delta_R_j;
 
         // pick random locations (i and j) on the earth surface
         // where MAX_SURFACE depends on whether the earth is being simulated as a disk or sphere:
@@ -196,36 +196,34 @@ static void *tides_thread(void *cx)
         if (i == j) continue;
 
         // Calculate the change in radius at locations i and j that would occur if an equal amount
-        // of water is moved to or from that location. When the earth.surface[].r is larger then
+        // of water is moved to or from that location. When the earth.surface[].R is larger then
         // the change in radius is less because the water is spread over a larger area.
         // 
         // The .001 value is in units of meters (equals 1 mm). This value should be small 
         // relative to the expected tidal range, but not too small because making it too small
         // lengthens the number of loops needed to arrive at a result.
-// xxx match names, call this delta_r_i
-        dr_i = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].r);
-        dr_j = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].r);
+        delta_R_i = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[i].R);
+        delta_R_j = (.001 * EARTH_RADIUS * EARTH_RADIUS) / square(earth.surface[j].R);
 
         // Compute the change in potential energy if 1 unit of water mass is moved
         // from location j to location i. Since we ae just trying to determine if the
-        // potential energy has decreased or not, the delta_pe value does not have units.
-        delta_pe = 0;
+        // potential energy has decreased or not, the delta_E value does not have units.
+        delta_E = 0;
 
-// xxx simpify
-        g_surface = earth.surface[i].g;
-        r         = earth.surface[i].r + dr_i/2;
-        delta_pe += g_surface * square(r);
+        gt = earth.surface[i].gt;
+        R  = earth.surface[i].R + delta_R_i/2;
+        delta_E += gt * square(R);
 
-        g_surface = earth.surface[j].g;
-        r         = earth.surface[j].r - dr_j/2;
-        delta_pe -= g_surface * square(r);
+        gt = earth.surface[j].gt;
+        R  = earth.surface[j].R - delta_R_j/2;
+        delta_E -= gt * square(R);
 
         // if the change in potential energy is negative, that means moving the
         // water from location j to i causes a decrease in potential energy;
-        // so adjust the earth.surface[i/j].r values to reflect the water being moved
-        if (delta_pe < 0) {
-            earth.surface[i].r += dr_i;
-            earth.surface[j].r -= dr_j;
+        // so adjust the earth.surface[i/j].R values to reflect the water being moved
+        if (delta_E < 0) {
+            earth.surface[i].R += delta_R_i;
+            earth.surface[j].R -= delta_R_j;
         }
 
         // increment loops
@@ -306,7 +304,7 @@ static void set_earth_moon_position_and_surface_values(void)
     // - a large number, which is total the number of 60NM x 60NM squares on the 
     //   spherical earth.
     for (int i = 0; i < MAX_SURFACE; i++) {
-        vector_t g, m, c, s, cs, t;
+        vector_t g, m, c, s, cs, gt;
         double d;
 
         // compute the following acceleration vectors, at location earth.surface[i]:
@@ -353,22 +351,22 @@ static void set_earth_moon_position_and_surface_values(void)
             vector_init(&cs, 0, 0, 0);
         }
 
-        // add the 5 vectors that were computed above, and store result in 't'; because
-        // m,c,s, and cs are tiny the direction and magnitide of 't' are very close to the
+        // add the 5 vectors that were computed above, and store result in 'gt'; because
+        // m,c,s, and cs are tiny the direction and magnitide of 'gt' are very close to the
         // earth gravity vector 'g'
-        vector_init(&t, 0, 0, 0);
-        vector_add(&t, &g);
-        vector_add(&t, &m);
-        vector_add(&t, &c);
-        vector_add(&t, &s);
-        vector_add(&t, &cs);
+        vector_init(&gt, 0, 0, 0);
+        vector_add(&gt, &g);
+        vector_add(&gt, &m);
+        vector_add(&gt, &c);
+        vector_add(&gt, &s);
+        vector_add(&gt, &cs);
 
         // set earth.surface[i[.g to the magnitude of vector 't';
         // it may be confusing that the vector 'g' and the earth.surface[i].g are 
         //  not the same thing, the vector g is the earth's gravity at this location, and 
         //  the searth_surface[i].g is the magnitude of the sum of all accelerations 
         //  at this location
-        earth.surface[i].g = vector_get_magnitude(&t);
+        earth.surface[i].gt = vector_get_magnitude(&gt);
 
         // set earth.surface[i[.v to the sum of all accels, along the equator, 
         //  excluding the accel of earth gravity;
@@ -400,7 +398,7 @@ static void set_earth_moon_position_and_surface_values(void)
             printf("     sun centrifugal accel  = %+0.9f %+0.9f %+0.9f   magnitude = %0.9f\n", 
                    cs.a, cs.b, cs.c, vector_get_magnitude(&cs));
             printf("     total                  = %+0.9f %+0.9f %+0.9f   magnitude = %0.9f\n",
-                   t.a, t.b, t.c, vector_get_magnitude(&t));
+                   gt.a, gt.b, gt.c, vector_get_magnitude(&gt));
             printf("\n");
         }
 #endif
@@ -418,13 +416,13 @@ void tides_get_min_max(double *min, double *max, int *min_idx, int *max_idx)
     *max = -1e99;
 
     for (int i = 0; i < 360; i++) {
-        double r = earth.surface[i].r;
-        if (r < *min) {
-            *min = r;
+        double R = earth.surface[i].R;
+        if (R < *min) {
+            *min = R;
             if (min_idx) *min_idx = i;
         }
-        if (r > *max) {
-            *max = r;
+        if (R > *max) {
+            *max = R;
             if (max_idx) *max_idx = i;
         }
     }
@@ -448,10 +446,10 @@ int main(int argc, char **argv)
         tides_get_min_max(&min, &max, &min_idx, &max_idx);
         printf("   min = %f (idx=%d)   max = %f (idx=%d)   range = %f m  %f ft\n", 
                min, min_idx, max, max_idx, max-min, METERS_TO_FEET(max-min));
-        printf("   %3d = %+0.3f\n",   0, METERS_TO_FEET(earth.surface[0].r-EARTH_RADIUS));
-        printf("   %3d = %+0.3f\n",  90, METERS_TO_FEET(earth.surface[90].r-EARTH_RADIUS));
-        printf("   %3d = %+0.3f\n", 180, METERS_TO_FEET(earth.surface[180].r-EARTH_RADIUS));
-        printf("   %3d = %+0.3f\n", 270, METERS_TO_FEET(earth.surface[270].r-EARTH_RADIUS));
+        printf("   %3d = %+0.3f\n",   0, METERS_TO_FEET(earth.surface[0].R-EARTH_RADIUS));
+        printf("   %3d = %+0.3f\n",  90, METERS_TO_FEET(earth.surface[90].R-EARTH_RADIUS));
+        printf("   %3d = %+0.3f\n", 180, METERS_TO_FEET(earth.surface[180].R-EARTH_RADIUS));
+        printf("   %3d = %+0.3f\n", 270, METERS_TO_FEET(earth.surface[270].R-EARTH_RADIUS));
         printf("\n");
     }
 

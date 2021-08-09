@@ -62,8 +62,8 @@ struct {
         double x;    // x,y,z are relative to the center of the earth
         double y;
         double z;
-        double g;    // the total accel at this location on the earth's surface
-        double r;    // the distance to earth center at this location, including the tide level
+        double gt;   // the total accel at this location on the earth's surface
+        double R;    // the distance to earth center at this location, including the tide level
         vector_t v;  // sum of all accels at this location, excluding earth's gravity
     } surface[MAX_EARTH_SURFACE];
     int max_surface;

@@ -1,12 +1,10 @@
-XXX earth, moon
-force
 ==========================================
 INTRODUCTION
 ==========================================
 
 I've known for quite some time that the tides are caused by the 
-moon's gravity, and that their is a tidal bulge on both the side of the
-earth facing the moon, and also on the opposite side of the earth.
+Moon's gravity, and that their is a tidal bulge on both the side of the
+Earth facing the Moon, and also on the opposite side of the Earth.
 
 It seems that the Moon's gravity should be pulling the water towards the Moon.
 This would account for the tidal bulge on the side of the Earth facing the Moon.
@@ -23,19 +21,19 @@ CENTRIFUGAL FORCE
 The answer has to do with Centrifugal Force. 
 
 We usually think of the Moon orbiting a stationary Earth. However the Moon and the
-Earth are both in orbital motion around the center of mass, or Barycenter.
-The Earth-Moon Barycenter is located at a point that lies on a line between
-the center of the Earth and Moon. And since the Earth is much more massive than 
-the Moon, the Barycenter is located close to the center of the Earth.
+Earth are both in orbital motion around the center of mass, or barycenter.
+The Earth-Moon barycenter is located at a point that lies on a line between
+the Earth and the Moon. And since the Earth is much more massive than 
+the Moon, the barycenter is located close to the center of the Earth.
 
 In this diagram:
-- B: is the center of mass, or Barycenter
-- *: is the cener of the Earth
-- 1: is a point on the surface of the earth opposite the Moon
-- 2: is a point on the surface of the earth facing the Moon
-- C: centrifugal force, direction is away from the Moon, and 
+- B: is the center of mass, or barycenter
+- *: is the center of the Earth
+- 1: is a point on the surface of the Earth opposite the Moon
+- 2: is a point on the surface of the Earth facing the Moon
+- C: centrifugal force vector, direction is away from the Moon, and 
      has the same value at all locations on and within the Earth
-- Mc, M1, M2: gravitational force caused by the Moon's mass, at 
+- Mc, M1, M2: gravitational force vectors caused by the Moon's mass, at 
      these 3 locations on Earth
 
               xxxxxxxxxxx
@@ -50,7 +48,7 @@ In this diagram:
 
                  <--- C
 
-The center of earth '*' is moving in a 27 day circular orbit around the
+The center of Earth '*' is moving in a 27 day circular orbit around the
 barycenter 'B'. This causes a centrifugal force 'C', that is directed away
 from the Moon, and has the same magnitude and direction at all locations on 
 the surface and within the Earth. Refer to the first referenced web site.
@@ -58,13 +56,13 @@ the surface and within the Earth. Refer to the first referenced web site.
 Because the Earth and Moon are in orbit, the Centrifugal Force 'C' is equal
 in magnitude and opposite in direction to the Gravitational Force 'Mc'.
 
-Since '2' is closer to the Moon than Earth center, the gravitational force
-M2 is larger than Mc. Adding vectors M2 and C gives a small force directoed towards
-the moon at point '2'.
+Since '2' is closer to the Moon than the Earth's center, the gravitational force
+M2 is larger than Mc. Adding vectors M2 and C gives a small force directed towards
+the Moon at point '2'.
 
 Since '1' is further from the Moon than Earth center, the gravitational force
 M1 is smaller then Mc. Adding vectors M1 and C gives a small force directed away
-from the moon at point '1'. This accounts for the tidal bulge on the side of the 
+from the Moon at point '1'. This accounts for the tidal bulge on the side of the 
 Earth opposite from the Moon.
 
 ==========================================
@@ -81,10 +79,10 @@ The program produces reasonable results.
 However, I would not be surprised if there are errors.
 
 There are many simplifying assumptions, including:
-- earth, moon, and sun orbits are in the x,y plane
-- the earth is not rotating on it's axis
-- depending on whether the program is simulating a spherical or disk earth, the
-  earth is either a sphere of water, or a confined disk of water
+- Earth, Moon, and Sun orbits are in the x,y plane
+- the Earth is not rotating on it's axis
+- depending on whether the program is simulating a spherical or disk Earth, the
+  Earth is either a sphere of water, or a confined disk of water
 - orbits are circular
 - the calculation of potential energy is reasonably correct
 
@@ -94,28 +92,28 @@ CALCULATING POTENTIAL ENERGY, CONSIDERING
 - ONLY EARTH'S GRAVITY
 ==========================================
 
-First let's find the equation for potential energy of a mass-of-water 'm', at 
+Let's find the equation for potential energy of a mass-of-water 'm', at 
 distance 'R' from the Earth's center. Just the gravitational force of the Earth
 will be considered, for now. This potential energy is the amount of energy 
-needed to raise the water from the center of the earth to distance 'R' from the center.
+needed to raise the water from the center of the Earth to distance 'R' from the center.
 
 Definitions of values used in the following equations:
 - G:  Gravitational Constant
 - Me: Mass of Earth
 - Re: Radius of spherical Earth (without tidal fluctuations)
-- g:  gravitational accel at the Earth's surface (9.81 m/s/s)
-- R:  distance from earth's center to the mass-of-water
+- g:  gravitational acceleration at the Earth's surface (9.81 m/s/s)
+- R:  distance from Earth's center to the mass-of-water
 - E:  potential energy of the the mass-of-water
 - m:  mass of the mass-of-water
 
-The acceleration at the earth surface is:
+The acceleration at the Earth surface is:
 
        G * Me
    g = ------
         Re^2
 
-Imagine a tunnel through the center of the earth, the accel of gravity
-at distance r from earth center is:
+Imagine a tunnel through the center of the Earth, the acceleration of gravity
+at distance r from Earth center is:
 
                        r^3
            G * ( Me * ---- )
@@ -131,7 +129,7 @@ at distance r from earth center is:
    g(r) = g * ----
                Re
 
-The amount of Energy to lift the mass-of-water from earth'c center for distance 'R':
+The amount of Energy to lift the mass-of-water from Earth'c center for distance 'R':
 
           R
    E = Integral  F(r) * dr
@@ -149,12 +147,11 @@ The amount of Energy to lift the mass-of-water from earth'c center for distance 
    E = --- * ------- * R^2
         2      Re
 
-
 ==========================================
 CALCULATING POTENTIAL ENERGY FOR THIS SIMULATION
 ==========================================
 
-The equation for potential energy, from the preceeding section is:
+The equation for potential energy, from the prior section is:
 
         1     m * g
    E = --- * ------- * R^2
@@ -165,31 +162,31 @@ The equation for potential energy, from the preceeding section is:
    E ~ g * R^2
 
    Where:
-   - g:  gravitational accel at the Earth's surface (9.81 m/s/s)
-   - R:  distance from earth's center to the mass-of-water
+   - g:  gravitational acceleration at the Earth's surface (9.81 m/s/s)
+   - R:  distance from Earth's center to the mass-of-water
 
    For this simulation, 'g' is replaced with 'gt', Where:
    - gt: magnitude of the total acceleration vector at a particular
-         location of the earth's surface;
-         The total acceleration vector is the sum of:
-         - earth gravity
-         - moon gravity
-         - sun gravity
-         - centrifugal accel due to circular motion about earth-moon barycenter
-         - centrifugal accel due to circular motion about earth-sun barycenter
+         location of the Earth's surface;
+         The total acceleration vector is the sum of the following vectors:
+         - Earth gravity
+         - Moon gravity
+         - Sun gravity
+         - centrifugal acceleration due to circular motion about Earth-Moon barycenter
+         - centrifugal acceleration due to circular motion about Earth-Sun barycenter
 
    E ~ gt * R^2
 
-   Replacing 'g' with 'gt' is a simplifying assumption.
+   Note: Replacing 'g' with 'gt' is a 'simplifying assumption'.
 
 
 This simulation program also need to consider the thickness of the mass of water.
 The equation for 'A' accounts for when the mass-of-water is further away
-from earth's center it is spread over a larger area.
+from Earth's center it is spread over a larger area.
 
    Where:
-   - m:       mass of the water
-   - A:       the earth surface area over which it is spread
+   - m:       mass of the mass-of-water
+   - A:       the Earth surface area over which the mass-of-water is spread
    - delta_R: the thickness of the mass-of-water
    - p:       density of water
 
@@ -213,3 +210,4 @@ from earth's center it is spread over a larger area.
                                 1
    delta_R = (.0001 * Re^2) * -----
                                R^2
+

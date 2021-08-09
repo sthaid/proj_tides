@@ -175,7 +175,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         int count=0;
         point_t points[361];
         for (int i = 0; i < 360; i++) {
-            double r = EARTH_RADIUS + 400000 + (earth.surface[i].r - min) * 4000000;
+            double r = EARTH_RADIUS + 400000 + (earth.surface[i].R - min) * 4000000;
             points[count].x = x_ctr + nearbyint(esf * (r * cos(DEG_TO_RAD(i)) + earth.x));
             points[count].y = y_ctr - nearbyint(esf * (r * sin(DEG_TO_RAD(i)) + earth.y));
             count++;
@@ -195,7 +195,7 @@ static int pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_
         if (ctrls.vectors) {
             double x1, x2,y1, y2;
             for (int i = 0; i < 360; i += 10) {
-                double r = EARTH_RADIUS + 400000 + (earth.surface[i].r - min) * 4000000;
+                double r = EARTH_RADIUS + 400000 + (earth.surface[i].R - min) * 4000000;
                 x1 = x_ctr + nearbyint(esf * (r * cos(DEG_TO_RAD(i)) + earth.x));
                 y1 = y_ctr - nearbyint(esf * (r * sin(DEG_TO_RAD(i)) + earth.y));
 
