@@ -42,3 +42,7 @@ The vectors displayed include the acceleration from the Moon and Sun's gravity, 
 from the centrifugal acceleration of the Earth around the Earth-Moon and Earth-Sun
 barycenters. The vectors do not include the Earth's gravity.
 
+# Screenshot
+
+![screenshot.png](/assets/screenshot.png)
+
