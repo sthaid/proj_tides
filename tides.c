@@ -12,7 +12,7 @@
 #include <tides.h>
 
 //
-// defines
+// defines 
 //
 
 // the earth.surface array is ordered with the 360 equator values first;
